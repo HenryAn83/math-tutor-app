@@ -1,0 +1,96 @@
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --text: #1d2233;
+  --muted: #6b7280;
+  --primary: #4f6df5;
+  --primary-text: #ffffff;
+  --tutor: #ffffff;
+  --me: #4f6df5;
+  --line: #e3e6ef;
+  --ok: #e6f6ec;
+  --ok-text: #1f7a3f;
+  --warn: #fff4dc;
+  --warn-text: #8a5a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12141c;
+    --card: #1d2030;
+    --text: #eef0f6;
+    --muted: #9aa1b4;
+    --tutor: #23273a;
+    --line: #2e3348;
+    --ok: #17321f;
+    --ok-text: #8fdca8;
+    --warn: #3a2e12;
+    --warn-text: #f3cf7a;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+#app { max-width: 560px; margin: 0 auto; min-height: 100dvh; }
+.screen { padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
+h1 { font-size: 30px; margin: 24px 0 0; }
+h2 { font-size: 21px; margin: 8px 0 0; }
+.lead { font-size: 18px; margin: 0 0 8px; }
+.sub, .note { color: var(--muted); font-size: 15px; margin: 0; }
+.note { background: var(--warn); color: var(--warn-text); padding: 10px 12px; border-radius: 12px; }
+
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text);
+  border-radius: 14px; padding: 12px 16px; font: inherit; font-weight: 600; cursor: pointer;
+}
+.btn.primary { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
+.btn.big { padding: 18px; font-size: 19px; }
+.btn.small { padding: 6px 12px; font-size: 15px; }
+.btn.link { background: none; border: none; color: var(--muted); text-decoration: underline; font-weight: 500; }
+.btn:disabled { opacity: .5; }
+.row { display: flex; gap: 10px; }
+.row .btn { flex: 1; }
+
+.tips { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; font-size: 15px; color: var(--muted); }
+.tips ul { margin: 6px 0 0; padding-left: 20px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font: inherit; color: var(--text); width: 100%; }
+.problem { white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+textarea.card { resize: vertical; }
+.choices { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.spinner { width: 44px; height: 44px; margin: 80px auto 8px; border: 4px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+#screen-wait { text-align: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 대화 화면 */
+.chat { height: 100dvh; padding: 0; gap: 0; }
+.chat-head { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--card); }
+.chat-head details { flex: 1; font-size: 15px; }
+.chat-head summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.chat-head .problem { max-height: 35dvh; overflow: auto; padding: 8px 0; }
+.badge { font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 4px; }
+.badge.ok { background: var(--ok); color: var(--ok-text); }
+.badge.warn { background: var(--warn); color: var(--warn-text); }
+.messages { flex: 1; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 10px; }
+.bubble { max-width: 85%; padding: 10px 14px; border-radius: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble.assistant { align-self: flex-start; background: var(--tutor); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+.bubble.user { align-self: flex-end; background: var(--me); color: #fff; border-bottom-right-radius: 6px; }
+.bubble.typing { color: var(--muted); animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .4; } }
+.quick { display: flex; gap: 8px; padding: 6px 12px; overflow-x: auto; }
+.quick button { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 15px; cursor: pointer; }
+.composer { display: flex; gap: 8px; padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--card); }
+.composer textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font: inherit; background: var(--bg); color: var(--text); }
+.composer .btn { padding: 10px 14px; }
+
+.toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100% - 32px); background: #1d2233; color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 15px; box-shadow: 0 6px 20px rgba(0,0,0,.2); z-index: 10; }
+.wave { display: inline-block; }

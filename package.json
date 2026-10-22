@@ -1,0 +1,17 @@
+{
+  "name": "math-tutor-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI 1:1 수학 선생님 (첫 프로토타입)",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev-server.js",
+    "dev:mock": "MOCK=1 ACCESS_CODE=test node scripts/dev-server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.1.0"
+  }
+}
