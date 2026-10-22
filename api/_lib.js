@@ -3,7 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 
-export const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
+export const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 export const MOCK = process.env.MOCK === "1";
 
 let client;

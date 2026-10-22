@@ -38,7 +38,7 @@ Vercel 대시보드 → 프로젝트 → Settings → Environment Variables 에 
 배포 후 공유 링크: `https://<프로젝트>.vercel.app/?k=<ACCESS_CODE>`
 한 번 열면 폰이 코드를 기억하므로, 그다음부터는 홈 화면 아이콘으로 열면 됩니다.
 
-선택: `CLAUDE_MODEL` (기본 `claude-opus-5-5`), `SECRET_SEED` (정답 잠금용 별도 비밀값).
+선택: `CLAUDE_MODEL` (기본 `claude-sonnet-5-5`, 더 정확하게 하려면 `claude-opus-5-5`), `SECRET_SEED` (정답 잠금용 별도 비밀값).
 
 **API 키는 절대 코드나 GitHub에 올리지 마세요.** Vercel 환경 변수에만 넣습니다.
 
