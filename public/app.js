@@ -9,7 +9,7 @@ if (params.get("k")) {
   localStorage.setItem("accessCode", params.get("k"));
   history.replaceState(null, "", location.pathname);
 }
-const accessCode = localStorage.getItem("accessCode") || "";
+let accessCode = localStorage.getItem("accessCode") || "";
 
 const state = {
   candidates: [], // 사진에서 읽은 문제들
@@ -45,6 +45,12 @@ async function api(path, body) {
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    // 코드가 바뀌었거나 틀리면 다시 입력하게 한다
+    localStorage.removeItem("accessCode");
+    accessCode = "";
+    show("code");
+  }
   if (!res.ok) throw new Error(data.error || "앗, 연결에 문제가 생겼어. 다시 해 볼래?");
   return data;
 }
@@ -237,6 +243,34 @@ for (const b of document.querySelectorAll("[data-quick]")) {
   b.onclick = () => sendMessage(b.dataset.quick);
 }
 
-if (!accessCode) toast("받은 링크로 다시 들어와 줘.");
+// ---------- 입장 코드 ----------
+
+async function tryCode(code) {
+  accessCode = code.trim();
+  try {
+    await api("access", {});
+    localStorage.setItem("accessCode", accessCode);
+    show("home");
+  } catch (err) {
+    // 401이면 api()가 코드를 지우고 입력 화면으로 보낸다. 그 밖의 오류는 연결 문제.
+    if (!accessCode) {
+      show("code");
+      toast("코드가 맞지 않아. 다시 확인해 줄래?");
+    } else {
+      show("home");
+      toast(err.message);
+    }
+  }
+}
+
+$("code-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if ($("code-input").value.trim()) tryCode($("code-input").value);
+});
+
+if (accessCode) {
+  show("home");
+  tryCode(accessCode);
+} else show("code");
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

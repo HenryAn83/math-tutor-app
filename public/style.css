@@ -94,3 +94,5 @@ textarea.card { resize: vertical; }
 
 .toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100% - 32px); background: #1d2233; color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 15px; box-shadow: 0 6px 20px rgba(0,0,0,.2); z-index: 10; }
 .wave { display: inline-block; }
+.code-form { display: flex; flex-direction: column; gap: 12px; }
+.code-form input { font-size: 18px; }
