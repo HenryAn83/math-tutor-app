@@ -1,6 +1,8 @@
 // 화면 흐름: 시작 → 사진 읽기 → "이렇게 읽었는데 맞아?" → 미리 풀어 보기 → 대화
 // 사진과 대화는 이 폰 화면에만 있다. 새로고침하면 사라진다.
 
+import { canListen, canSpeak, toggleListening, speak, stopSpeaking } from "./voice.js";
+
 const $ = (id) => document.getElementById(id);
 
 // 비밀 링크(?k=코드)의 코드를 기억하고 주소창에서는 지운다.
@@ -185,6 +187,7 @@ async function sendToTutor() {
     typing.remove();
     state.messages.push({ role: "assistant", content: reply });
     addBubble("assistant", reply);
+    if (soundOn) speak(reply);
   } catch (err) {
     typing.remove();
     // 실패한 학생 메시지는 빼서 다시 보낼 수 있게 한다
@@ -203,6 +206,7 @@ async function sendToTutor() {
 async function sendMessage(text) {
   text = text.trim();
   if (!text || state.busy) return;
+  stopSpeaking();
   state.messages.push({ role: "user", content: text });
   addBubble("user", text);
   $("chat-input").value = "";
@@ -224,7 +228,60 @@ $("btn-type").onclick = startTyping;
 $("btn-edit").onclick = editProblem;
 $("btn-yes").onclick = confirmProblem;
 $("btn-retake").onclick = () => show("home");
+// ---------- 음성 ----------
+
+let soundOn = false;
+try {
+  soundOn = localStorage.getItem("soundOn") === "1";
+} catch {}
+
+function renderSound() {
+  $("btn-sound").textContent = soundOn ? "🔊" : "🔇";
+  $("btn-sound").setAttribute("aria-pressed", String(soundOn));
+}
+
+if (canSpeak) {
+  $("btn-sound").hidden = false;
+  renderSound();
+  $("btn-sound").onclick = () => {
+    soundOn = !soundOn;
+    try {
+      localStorage.setItem("soundOn", soundOn ? "1" : "0");
+    } catch {}
+    renderSound();
+    if (soundOn) {
+      // 버튼을 누른 순간에 한 번 말해야 아이폰에서도 소리가 열린다
+      const last = state.messages.findLast((m) => m.role === "assistant");
+      speak(last ? last.content : "소리 켰어!");
+    } else {
+      stopSpeaking();
+    }
+  };
+}
+
+if (canListen) {
+  $("btn-mic").hidden = false;
+  let before = "";
+  $("btn-mic").onclick = () => {
+    if (state.busy) return;
+    toggleListening({
+      onState: (on) => {
+        $("btn-mic").classList.toggle("listening", on);
+        $("chat-input").placeholder = on ? "듣고 있어… 말해 봐" : "생각을 적어 봐";
+        if (on) before = $("chat-input").value ? $("chat-input").value + " " : "";
+      },
+      // 말한 내용은 바로 보내지 않고 입력칸에 넣는다. 잘못 들었으면 고치고 보내면 된다.
+      onText: (text) => {
+        $("chat-input").value = before + text;
+        autoGrow();
+      },
+      onError: toast,
+    });
+  };
+}
+
 $("btn-new").onclick = () => {
+  stopSpeaking();
   if (state.messages.length < 2 || confirm("새 문제로 갈까? 지금 대화는 사라져.")) show("home");
 };
 $("chat-form").addEventListener("submit", (e) => {

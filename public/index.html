@@ -76,6 +76,7 @@
           <summary>📄 오늘 문제 <span id="check-badge" class="badge"></span></summary>
           <div id="chat-problem" class="problem"></div>
         </details>
+        <button id="btn-sound" class="btn small" hidden aria-pressed="false" title="선생님 말 읽어 주기">🔇</button>
         <button id="btn-new" class="btn small">새 문제</button>
       </header>
       <div id="messages" class="messages" aria-live="polite"></div>
@@ -85,6 +86,7 @@
         <button data-quick="왜 그렇게 되는지 다시 설명해 줘">🔁 다시 설명</button>
       </div>
       <form id="chat-form" class="composer">
+        <button id="btn-mic" class="btn mic" type="button" hidden aria-label="말로 하기">🎤</button>
         <textarea id="chat-input" rows="1" placeholder="생각을 적어 봐" enterkeyhint="send"></textarea>
         <button class="btn primary" type="submit">보내기</button>
       </form>
