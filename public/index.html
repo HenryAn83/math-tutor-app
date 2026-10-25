@@ -38,6 +38,7 @@
         <input id="input-album" type="file" accept="image/*" hidden />
       </label>
       <button id="btn-type" class="btn link">사진 말고 직접 쓸래</button>
+      <button id="btn-history" class="btn" hidden>📚 지난 문제</button>
       <div class="tips">
         <b>잘 찍는 요령</b>
         <ul>
@@ -90,6 +91,33 @@
         <textarea id="chat-input" rows="1" placeholder="생각을 적어 봐" enterkeyhint="send"></textarea>
         <button class="btn primary" type="submit">보내기</button>
       </form>
+    </section>
+
+    <!-- 5. 지난 문제 목록 -->
+    <section id="screen-history" class="screen" hidden>
+      <h2>📚 지난 문제</h2>
+      <p class="sub">이 폰 안에만 저장돼. 사진은 저장하지 않아.</p>
+      <div id="history-list" class="history-list"></div>
+      <p id="history-empty" class="sub" hidden>아직 푼 문제가 없어.</p>
+      <button id="btn-history-back" class="btn link">처음으로</button>
+    </section>
+
+    <!-- 6. 풀이 노트 -->
+    <section id="screen-note" class="screen" hidden>
+      <h2 id="note-title"></h2>
+      <p id="note-date" class="sub"></p>
+      <details class="card">
+        <summary>📄 문제 보기</summary>
+        <div id="note-problem" class="problem"></div>
+      </details>
+      <div class="card">
+        <b>풀이 과정</b>
+        <ol id="note-steps" class="note-steps"></ol>
+        <div><b>답:</b> <span id="note-answer"></span></div>
+      </div>
+      <div class="card key"><b>💡 핵심</b><div id="note-key"></div></div>
+      <div id="note-stuck-box" class="card stuck"><b>⚠️ 다음에 조심할 점</b><div id="note-stuck"></div></div>
+      <button id="btn-note-back" class="btn">목록으로</button>
     </section>
 
     <div id="toast" class="toast" hidden></div>
