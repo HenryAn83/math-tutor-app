@@ -1,7 +1,7 @@
 // 화면 흐름: 시작 → 사진 읽기 → "이렇게 읽었는데 맞아?" → 미리 풀어 보기 → 대화
 // 사진과 대화는 이 폰 화면에만 있다. 새로고침하면 사라진다.
 
-import { canListen, canSpeak, toggleListening, speak, stopSpeaking } from "./voice.js";
+import { canListen, canSpeak, toggleListening, speak, stopSpeaking, unlockSpeech } from "./voice.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -174,9 +174,39 @@ function addBubble(role, text) {
   const div = document.createElement("div");
   div.className = `bubble ${role}`;
   div.textContent = text;
+  if (role === "assistant" && canSpeak) div.append(replayButton(text));
   $("messages").append(div);
   div.scrollIntoView({ behavior: "smooth", block: "end" });
   return div;
+}
+
+// 선생님 말풍선마다 붙는 "다시 듣기" 버튼. 읽는 중에 누르면 멈춘다.
+let playingButton = null;
+
+function replayButton(text) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "replay";
+  b.textContent = "🔊 다시 듣기";
+  b.onclick = () => {
+    if (playingButton === b) return stopSpeaking();
+    playText(text, b);
+  };
+  return b;
+}
+
+function playText(text, button) {
+  speak(text, {
+    onEnd: () => {
+      if (playingButton !== button) return;
+      playingButton = null;
+      button.textContent = "🔊 다시 듣기";
+      button.classList.remove("playing");
+    },
+  });
+  playingButton = button;
+  button.textContent = "⏹ 그만 듣기";
+  button.classList.add("playing");
 }
 
 async function sendToTutor() {
@@ -186,8 +216,8 @@ async function sendToTutor() {
     const { reply } = await api("chat", { sealed: state.sealed, messages: state.messages });
     typing.remove();
     state.messages.push({ role: "assistant", content: reply });
-    addBubble("assistant", reply);
-    if (soundOn) speak(reply);
+    const bubble = addBubble("assistant", reply);
+    if (soundOn && canSpeak) playText(reply, bubble.querySelector(".replay"));
   } catch (err) {
     typing.remove();
     // 실패한 학생 메시지는 빼서 다시 보낼 수 있게 한다
@@ -207,6 +237,7 @@ async function sendMessage(text) {
   text = text.trim();
   if (!text || state.busy) return;
   stopSpeaking();
+  if (soundOn) unlockSpeech();
   state.messages.push({ role: "user", content: text });
   addBubble("user", text);
   $("chat-input").value = "";
@@ -226,13 +257,17 @@ $("input-camera").addEventListener("change", onPhoto);
 $("input-album").addEventListener("change", onPhoto);
 $("btn-type").onclick = startTyping;
 $("btn-edit").onclick = editProblem;
-$("btn-yes").onclick = confirmProblem;
+$("btn-yes").onclick = () => {
+  if (soundOn) unlockSpeech();
+  confirmProblem();
+};
 $("btn-retake").onclick = () => show("home");
 // ---------- 음성 ----------
 
-let soundOn = false;
+// 기본은 켜짐. 위쪽 🔊 버튼으로 끄면 이 폰이 기억한다.
+let soundOn = true;
 try {
-  soundOn = localStorage.getItem("soundOn") === "1";
+  soundOn = localStorage.getItem("soundOn") !== "0";
 } catch {}
 
 function renderSound() {
@@ -251,8 +286,11 @@ if (canSpeak) {
     renderSound();
     if (soundOn) {
       // 버튼을 누른 순간에 한 번 말해야 아이폰에서도 소리가 열린다
+      unlockSpeech();
+      const buttons = $("messages").querySelectorAll(".replay");
       const last = state.messages.findLast((m) => m.role === "assistant");
-      speak(last ? last.content : "소리 켰어!");
+      if (last && buttons.length) playText(last.content, buttons[buttons.length - 1]);
+      else speak("소리 켰어!");
     } else {
       stopSpeaking();
     }
