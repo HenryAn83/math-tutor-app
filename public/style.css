@@ -111,4 +111,3 @@ textarea.card { resize: vertical; }
 .composer .btn.mic { padding: 10px 12px; font-size: 20px; }
 .composer .btn.mic.listening { background: #ff5a5f; border-color: #ff5a5f; animation: blink 1s ease-in-out infinite; }
 #btn-sound[aria-pressed="true"] { background: var(--ok); }
-
