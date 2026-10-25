@@ -1,9 +1,10 @@
 // 화면 흐름: 시작 → 사진 읽기 → "이렇게 읽었는데 맞아?" → 미리 풀어 보기 → 대화
-// 사진과 대화는 이 폰 화면에만 있다. 새로고침하면 사라진다.
+// 사진은 저장하지 않는다. 문제 글과 대화는 이 폰 안에만 기록한다(history.js).
 
 import { canListen, canSpeak, toggleListening, speak, stopSpeaking } from "./voice.js";
 
 const $ = (id) => document.getElementById(id);
+import { newId, saveItem, listItems, getItem, deleteItem, formatDate, summarizing } from "./history.js";
 
 // 비밀 링크(?k=코드)의 코드를 기억하고 주소창에서는 지운다.
 const params = new URLSearchParams(location.search);
@@ -19,10 +20,14 @@ const state = {
   sealed: "", // 서버가 잠가 둔 정답 풀이
   messages: [], // {role, content}
   busy: false,
+  id: "", // 기록에 저장할 때 쓰는 이름표
+  createdAt: 0,
+  agree: true,
 };
 
 function show(name) {
   for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== `screen-${name}`;
+  if (name === "home") renderHistoryButton();
   window.scrollTo(0, 0);
 }
 
@@ -156,11 +161,10 @@ async function confirmProblem() {
     const result = await api("check", { problem: state.problem });
     state.sealed = result.sealed;
     state.messages = [];
-    $("chat-problem").textContent = state.problem;
-    $("check-badge").textContent = result.agree ? "✅ 확인됨" : "⚠️ 같이 확인";
-    $("check-badge").className = "badge " + (result.agree ? "ok" : "warn");
-    $("messages").innerHTML = "";
-    show("chat");
+    state.id = newId();
+    state.createdAt = Date.now();
+    state.agree = result.agree;
+    openChat();
     await sendToTutor();
   } catch (err) {
     show("confirm");
@@ -200,6 +204,7 @@ async function sendToTutor() {
     toast(err.message);
   } finally {
     state.busy = false;
+    if (state.messages.at(-1)?.role === "assistant") saveCurrent();
   }
 }
 
@@ -282,7 +287,10 @@ if (canListen) {
 
 $("btn-new").onclick = () => {
   stopSpeaking();
-  if (state.messages.length < 2 || confirm("새 문제로 갈까? 지금 대화는 사라져.")) show("home");
+  if (state.messages.length < 2 || confirm("새 문제로 갈까? 지금까지 푼 과정은 '지난 문제'에 정리해 둘게.")) {
+    leaveCurrent();
+    show("home");
+  }
 };
 $("chat-form").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -331,3 +339,124 @@ if (accessCode) {
 } else show("code");
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+
+// ---------- 지난 문제 ----------
+// 푸는 동안에는 대화를 임시로 저장해 두고, 문제를 떠나면 "풀이 노트"로 짧게 정리한 뒤 대화는 지운다.
+
+function openChat() {
+  $("chat-problem").textContent = state.problem;
+  $("check-badge").textContent = state.agree ? "✅ 확인됨" : "⚠️ 같이 확인";
+  $("check-badge").className = "badge " + (state.agree ? "ok" : "warn");
+  $("messages").innerHTML = "";
+  show("chat");
+}
+
+function saveCurrent() {
+  if (!state.id) return;
+  const ok = saveItem({
+    id: state.id,
+    createdAt: state.createdAt,
+    problem: state.problem,
+    agree: state.agree,
+    sealed: state.sealed,
+    messages: state.messages,
+  });
+  if (!ok) toast("폰 저장 공간이 부족해서 기록을 못 남겼어.");
+}
+
+// 지금 푸는 문제를 내려놓는다. 정리는 뒤에서 조용히 한다.
+function leaveCurrent() {
+  const id = state.id;
+  state.id = "";
+  if (id) summarize(id);
+}
+
+async function summarize(id) {
+  const item = getItem(id);
+  if (!item || item.summary || summarizing.has(id)) return;
+  // 학생이 한마디도 안 한 기록은 남길 게 없다
+  if (!item.messages.some((m) => m.role === "user")) return deleteItem(id);
+  summarizing.add(id);
+  try {
+    const summary = await api("summary", { sealed: item.sealed, messages: item.messages });
+    const latest = getItem(id);
+    if (latest) {
+      saveItem({ id, createdAt: latest.createdAt, problem: latest.problem, agree: latest.agree, summary });
+    }
+  } catch {
+    // 실패하면 대화를 그대로 두고 다음에 다시 정리한다
+  } finally {
+    summarizing.delete(id);
+    if (!$("screen-history").hidden) renderHistory();
+    if (!$("screen-home").hidden) renderHistoryButton();
+  }
+}
+
+// 앱을 그냥 닫아서 정리 못 한 기록이 있으면 지금 정리한다.
+function summarizePending() {
+  for (const item of listItems()) if (!item.summary && item.id !== state.id) summarize(item.id);
+}
+
+function renderHistoryButton() {
+  const n = listItems().length;
+  $("btn-history").hidden = n === 0;
+  $("btn-history").textContent = `📚 지난 문제 ${n}개`;
+  summarizePending();
+}
+
+function renderHistory() {
+  const list = $("history-list");
+  list.innerHTML = "";
+  const items = listItems();
+  $("history-empty").hidden = items.length > 0;
+  for (const item of items) {
+    const row = document.createElement("div");
+    row.className = "history-item card";
+    const open = document.createElement("button");
+    open.className = "history-open";
+    const title = document.createElement("div");
+    title.className = "history-title";
+    title.textContent = item.summary?.title || item.problem.split("\n")[0];
+    const meta = document.createElement("div");
+    meta.className = "sub";
+    const status = !item.summary ? "정리 중…" : item.summary.finished ? "✅ 다 풀었어" : "⏸ 풀다 멈춤";
+    meta.textContent = `${formatDate(item.createdAt)} · ${status}`;
+    open.append(title, meta);
+    open.onclick = () => (item.summary ? showNote(item) : summarize(item.id));
+    const del = document.createElement("button");
+    del.className = "history-del";
+    del.setAttribute("aria-label", "지우기");
+    del.textContent = "🗑️";
+    del.onclick = () => {
+      if (!confirm("이 기록을 지울까? 되돌릴 수 없어.")) return;
+      deleteItem(item.id);
+      renderHistory();
+    };
+    row.append(open, del);
+    list.append(row);
+  }
+  show("history");
+}
+
+function showNote(item) {
+  const s = item.summary;
+  $("note-title").textContent = s.title;
+  $("note-date").textContent = formatDate(item.createdAt);
+  $("note-problem").textContent = item.problem;
+  const steps = $("note-steps");
+  steps.innerHTML = "";
+  for (const step of s.steps) {
+    const li = document.createElement("li");
+    li.textContent = step;
+    steps.append(li);
+  }
+  $("note-answer").textContent = s.answer || "아직 못 풀었어";
+  $("note-key").textContent = s.key;
+  $("note-stuck-box").hidden = !s.stuck;
+  $("note-stuck").textContent = s.stuck;
+  show("note");
+}
+
+$("btn-history").onclick = renderHistory;
+$("btn-history-back").onclick = () => show("home");
+$("btn-note-back").onclick = renderHistory;
