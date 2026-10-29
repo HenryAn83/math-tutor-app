@@ -1,6 +1,7 @@
 // 1단계: 사진을 글로 옮긴다. 사진은 Claude에게 보내기만 하고 저장하지 않는다.
 import { askJSON, checkAccess, onlyPost, sendError, MOCK } from "./_lib.js";
-import { READ_SYSTEM, READ_SCHEMA } from "./_prompts.js";
+import { readSystem, READ_SCHEMA } from "./_prompts.js";
+import { langOf, say } from "./_i18n.js";
 import { requireUser, creditsOf, noCredits } from "./_auth.js";
 
 const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -14,8 +15,10 @@ export default async function handler(req, res) {
   if ((await creditsOf(user)) === 0) return noCredits(res);
   const { image, mediaType } = req.body || {};
   if (typeof image !== "string" || !TYPES.includes(mediaType) || image.length > MAX_BASE64) {
-    return res.status(400).json({ error: "사진을 다시 골라 줄래?" });
+    return res.status(400).json({ error: say(req, "badPhoto") });
   }
+  const lang = langOf(req);
+  if (MOCK && lang === "en") return res.json(MOCK_EN);
   if (MOCK) {
     return res.json({
       problems: [
@@ -64,7 +67,7 @@ export default async function handler(req, res) {
   }
   try {
     const result = await askJSON({
-      system: READ_SYSTEM,
+      system: readSystem(lang),
       schema: READ_SCHEMA,
       effort: "medium",
       messages: [
@@ -72,7 +75,7 @@ export default async function handler(req, res) {
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: mediaType, data: image } },
-            { type: "text", text: "이 사진의 수학 문제를 옮겨 줘." },
+            { type: "text", text: lang === "en" ? "Copy the math problem in this photo." : "이 사진의 수학 문제를 옮겨 줘." },
           ],
         },
       ],
@@ -82,3 +85,31 @@ export default async function handler(req, res) {
     sendError(res, err);
   }
 }
+
+const MOCK_EN = {
+  problems: [
+    {
+      text: "In △ABC, ∠B = 90°, AB = 6 cm and BC = 8 cm. Find the length of side AC.",
+      diagram: "Right triangle ABC with the right angle at B. AB = 6 cm, BC = 8 cm",
+      unclear_parts: "",
+      figure: {
+        kind: "geometry",
+        points: [
+          { name: "A", x: 0, y: 6, label: true },
+          { name: "B", x: 0, y: 0, label: true },
+          { name: "C", x: 8, y: 0, label: true },
+        ],
+        segments: [
+          { from: "A", to: "B", text: "6 cm", dashed: false },
+          { from: "B", to: "C", text: "8 cm", dashed: false },
+          { from: "C", to: "A", text: "", dashed: false },
+        ],
+        angles: [{ vertex: "B", from: "A", to: "C", text: "", right: true }],
+        circles: [],
+        axes: { x_min: 0, x_max: 0, y_min: 0, y_max: 0 },
+        curves: [],
+      },
+    },
+  ],
+  photo_tip: "",
+};

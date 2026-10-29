@@ -1,3 +1,5 @@
+import { lang, t, SPEECH } from "./i18n.js";
+
 // 푼 문제 기록. 이 폰(브라우저) 안에만 저장하고 서버로는 보내지 않는다.
 // 사진은 크니까 저장하지 않고, 문제 글과 대화만 남긴다.
 
@@ -68,7 +70,8 @@ export function deleteItem(id) {
 export function formatDate(ms) {
   const d = new Date(ms);
   const today = new Date();
-  const time = d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
-  if (d.toDateString() === today.toDateString()) return `오늘 ${time}`;
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${time}`;
+  const time = d.toLocaleTimeString(SPEECH[lang], { hour: "numeric", minute: "2-digit" });
+  if (d.toDateString() === today.toDateString()) return t("date.today", { time });
+  const date = d.toLocaleDateString(SPEECH[lang], { month: "short", day: "numeric" });
+  return t("date.day", { m: d.getMonth() + 1, d: d.getDate(), date, time });
 }

@@ -1,6 +1,7 @@
 // 화면 흐름: 시작 → 사진 읽기 → "이렇게 읽었는데 맞아?" → 미리 풀어 보기 → 대화
 // 사진은 저장하지 않는다. 문제 글과 대화는 이 폰 안에만 기록한다(history.js).
 
+import { lang, t, applyStatic } from "./i18n.js";
 import { canListen, canSpeak, toggleListening, speak, stopSpeaking, unlockSpeech } from "./voice.js";
 
 const $ = (id) => document.getElementById(id);
@@ -9,6 +10,8 @@ import { openAdmin } from "./admin.js";
 import { usableFigure, figureLabels, drawFigure, markRefs, resolveRef, blink } from "./figure.js";
 
 // 비밀 링크(?k=코드)의 코드를 기억하고 주소창에서는 지운다.
+applyStatic();
+
 const params = new URLSearchParams(location.search);
 if (params.get("k")) {
   localStorage.setItem("accessCode", params.get("k"));
@@ -54,7 +57,7 @@ function wait(text, sub = "") {
 export async function api(path, body) {
   const res = await fetch(`/api/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-access-code": accessCode, Authorization: `Bearer ${authToken}` },
+    headers: { "Content-Type": "application/json", "x-lang": lang, "x-access-code": accessCode, Authorization: `Bearer ${authToken}` },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -71,7 +74,7 @@ export async function api(path, body) {
     me.credits = 0;
     renderMe();
   }
-  if (!res.ok) throw new Error(data.error || "앗, 연결에 문제가 생겼어. 다시 해 볼래?");
+  if (!res.ok) throw new Error(data.error || t("err.network"));
   return data;
 }
 
@@ -93,15 +96,15 @@ async function onPhoto(event) {
   const file = event.target.files?.[0];
   event.target.value = "";
   if (!file) return;
-  wait("사진 읽는 중…", "보통 10초쯤 걸려");
+  wait(t("wait.read"), t("wait.readSub"));
   try {
     const image = await shrink(file).catch(() => {
-      throw new Error("이 사진은 열 수가 없어. 다른 사진으로 해 볼래?");
+      throw new Error(t("photo.bad"));
     });
     const result = await api("read", { image, mediaType: "image/jpeg" });
     if (!result.problems?.length) {
       show("home");
-      toast(result.photo_tip || "문제를 못 찾았어. 문제 하나만 크게 다시 찍어 줄래?");
+      toast(result.photo_tip || t("photo.none"));
       return;
     }
     state.candidates = result.problems;
@@ -113,7 +116,7 @@ async function onPhoto(event) {
 }
 
 function problemToText(p) {
-  return p.diagram ? `${p.text}\n\n[그림] ${p.diagram}` : p.text;
+  return p.diagram ? `${p.text}\n\n${t("figure.tag")} ${p.diagram}` : p.text;
 }
 
 // ---------- 2. 확인 ----------
@@ -123,16 +126,16 @@ function showConfirm(index) {
   list.hidden = state.candidates.length < 2;
   list.innerHTML = "";
   if (state.candidates.length > 1) {
-    $("confirm-title").textContent = "문제가 여러 개 보여. 어떤 걸 할까?";
+    $("confirm-title").textContent = t("confirm.many");
     state.candidates.forEach((_, i) => {
       const b = document.createElement("button");
       b.className = "btn small" + (i === index ? " primary" : "");
-      b.textContent = `${i + 1}번`;
+      b.textContent = t("confirm.num", { n: i + 1 });
       b.onclick = () => showConfirm(i);
       list.append(b);
     });
   } else {
-    $("confirm-title").textContent = "이렇게 읽었는데 맞아?";
+    $("confirm-title").textContent = t("confirm.title");
   }
   const p = state.candidates[index];
   state.problem = problemToText(p);
@@ -141,7 +144,7 @@ function showConfirm(index) {
   $("problem-edit").hidden = true;
   $("problem-edit").value = state.problem;
   $("unclear-note").hidden = !p.unclear_parts;
-  $("unclear-note").textContent = p.unclear_parts ? `잘 안 보인 부분: ${p.unclear_parts}. 틀렸으면 '고칠게'를 눌러 줘.` : "";
+  $("unclear-note").textContent = p.unclear_parts ? t("confirm.unclear", { parts: p.unclear_parts }) : "";
   $("btn-edit").hidden = false;
   state.figure = usableFigure(p.figure);
   renderConfirmFigure();
@@ -158,13 +161,13 @@ function renderConfirmFigure() {
 $("btn-figure-off").onclick = () => {
   state.figure = null;
   renderConfirmFigure();
-  toast("그림은 빼고 할게. 선생님이 글로 설명해 줄게!");
+  toast(t("confirm.figureRemoved"));
 };
 
 function startTyping() {
   state.candidates = [];
   $("choice-list").hidden = true;
-  $("confirm-title").textContent = "문제를 적어 줘";
+  $("confirm-title").textContent = t("confirm.typeTitle");
   $("problem-view").hidden = true;
   $("unclear-note").hidden = true;
   $("problem-edit").hidden = false;
@@ -185,8 +188,8 @@ function editProblem() {
 
 async function confirmProblem() {
   if (!$("problem-edit").hidden) state.problem = $("problem-edit").value.trim();
-  if (!state.problem) return toast("문제를 먼저 적어 줘!");
-  wait("선생님이 먼저 풀어 보는 중…", "틀린 걸 알려 주면 안 되니까 두 번 풀어서 맞춰 볼게. 30초~1분쯤 걸려.");
+  if (!state.problem) return toast(t("confirm.empty"));
+  wait(t("wait.check"), t("wait.checkSub"));
   try {
     const result = await api("check", { problem: state.problem, figure: figureLabels(state.figure) });
     state.sealed = result.sealed;
@@ -225,8 +228,9 @@ function addBubble(role, text) {
 }
 
 // 선생님 말을 [{ text, emphasis }] 덩어리로 나눈다.
-// "[핵심설명]"이나 "오늘 배운 핵심:"으로 시작하는 줄부터 빈 줄까지가 핵심설명이다.
-const KEY_START = /^\s*\**\s*(\[\s*핵심\s*설명\s*\]|핵심\s*설명\s*[:：]|오늘 배운 핵심\s*[:：])\**\s*/;
+// "[핵심설명]"이나 "오늘 배운 핵심:"(영어는 "[Key idea]", "Key takeaway:")으로 시작하는 줄부터 빈 줄까지가 핵심설명이다.
+const KEY_START =
+  /^\s*\**\s*(\[\s*핵심\s*설명\s*\]|핵심\s*설명\s*[:：]|오늘 배운 핵심\s*[:：]|\[\s*key\s*idea\s*\]|key\s*idea\s*:|(today's\s*)?key\s*takeaway\s*:)\**\s*/i;
 
 function tutorSegments(text) {
   const segments = [];
@@ -252,7 +256,7 @@ function renderTutorText(div, text) {
       box.className = "key-block";
       const title = document.createElement("div");
       title.className = "key-title";
-      title.textContent = "핵심설명";
+      title.textContent = t("chat.keyTitle");
       box.append(title);
     }
     const body = document.createElement("div");
@@ -301,7 +305,7 @@ function replayButton(text) {
   const b = document.createElement("button");
   b.type = "button";
   b.className = "replay";
-  b.textContent = "🔊 다시 듣기";
+  b.textContent = t("chat.replay");
   b.onclick = () => {
     if (playingButton === b) return stopSpeaking();
     playText(text, b);
@@ -323,12 +327,12 @@ function playText(text, button) {
     onEnd: () => {
       if (playingButton !== button) return;
       playingButton = null;
-      button.textContent = "🔊 다시 듣기";
+      button.textContent = t("chat.replay");
       button.classList.remove("playing");
     },
   });
   playingButton = button;
-  button.textContent = "⏹ 그만 듣기";
+  button.textContent = t("chat.stop");
   button.classList.add("playing");
 }
 
@@ -416,7 +420,7 @@ if (canSpeak) {
       const buttons = $("messages").querySelectorAll(".replay");
       const last = state.messages.findLast((m) => m.role === "assistant");
       if (last && buttons.length) playText(markRefs(last.content, state.figure), buttons[buttons.length - 1]);
-      else speak("소리 켰어!");
+      else speak(t("chat.soundOn"));
     } else {
       stopSpeaking();
     }
@@ -431,7 +435,7 @@ if (canListen) {
     toggleListening({
       onState: (on) => {
         $("btn-mic").classList.toggle("listening", on);
-        $("chat-input").placeholder = on ? "듣고 있어… 말해 봐" : "생각을 적어 봐";
+        $("chat-input").placeholder = on ? t("chat.listening") : t("chat.ph");
         if (on) before = $("chat-input").value ? $("chat-input").value + " " : "";
       },
       // 말한 내용은 바로 보내지 않고 입력칸에 넣는다. 잘못 들었으면 고치고 보내면 된다.
@@ -447,7 +451,7 @@ if (canListen) {
 $("btn-new").onclick = () => {
   stopSpeaking();
   const talked = state.messages.some((m) => m.role === "user");
-  if (state.messages.length < 2 || confirm("새 문제로 갈까? 지금까지 푼 과정은 '지난 문제'에 정리해 둘게.")) {
+  if (state.messages.length < 2 || confirm(t("chat.newConfirm"))) {
     const problem = state.problem.split("\n")[0].slice(0, 100);
     leaveCurrent();
     // 한마디라도 나눈 문제면 버튼 두 번으로 끝나는 짧은 의견을 받는다
@@ -477,10 +481,10 @@ for (const row of document.querySelectorAll("#screen-quick [data-group]")) {
 
 $("btn-quick-skip").onclick = () => show("home");
 $("btn-quick-send").onclick = () => {
-  if (!quick.difficulty && !quick.questions) return toast("하나만 골라 줘! 아니면 '건너뛰기'");
+  if (!quick.difficulty && !quick.questions) return toast(t("quick.pick"));
   // 기다리지 않고 바로 홈으로. 실패해도 아이에게는 알리지 않는다.
   api("feedback", { about: quick.about, difficulty: quick.difficulty, questions: quick.questions }).catch(() => {});
-  toast("고마워! 😊");
+  toast(t("quick.thanks"));
   show("home");
 };
 
@@ -502,7 +506,7 @@ function renderDots() {
     if (n === i) d.className = "on";
     $("slide-dots").append(d);
   }
-  $("btn-slide-next").textContent = i === slideCount - 1 ? "시작하기!" : "다음";
+  $("btn-slide-next").textContent = i === slideCount - 1 ? t("tut.start") : t("tut.next");
 }
 
 function openTutorial() {
@@ -539,7 +543,7 @@ $("chat-input").addEventListener("keydown", (e) => {
   }
 });
 for (const b of document.querySelectorAll("[data-quick]")) {
-  b.onclick = () => sendMessage(b.dataset.quick);
+  b.onclick = () => sendMessage(t("quick." + b.dataset.quick));
 }
 
 // ---------- 입장 코드 ----------
@@ -554,7 +558,7 @@ async function tryCode(code) {
     // 401이면 api()가 코드를 지우고 입력 화면으로 보낸다. 그 밖의 오류는 연결 문제.
     if (!accessCode) {
       show("code");
-      toast("코드가 맞지 않아. 다시 확인해 줄래?");
+      toast(t("code.wrong"));
     } else if (authToken) {
       show("home");
       toast(err.message);
@@ -574,13 +578,15 @@ $("code-form").addEventListener("submit", (e) => {
 let signingUp = false;
 
 function renderLoginMode() {
-  $("login-lead").textContent = signingUp ? "처음 왔구나! 아이디를 만들어 줘." : "아이디로 들어와 줘.";
+  $("login-lead").textContent = t(signingUp ? "login.leadSignup" : "login.lead");
   $("login-name").hidden = !signingUp;
   $("login-free").hidden = !signingUp;
   $("login-pass").autocomplete = signingUp ? "new-password" : "current-password";
-  $("login-submit").textContent = signingUp ? "가입하고 시작" : "들어가기";
-  $("login-switch").textContent = signingUp ? "이미 아이디가 있어? 로그인" : "처음이야? 가입하기";
+  $("login-submit").textContent = t(signingUp ? "login.submitSignup" : "login.submit");
+  $("login-switch").textContent = t(signingUp ? "login.toLogin" : "login.toSignup");
 }
+
+renderLoginMode();
 
 $("login-switch").onclick = () => {
   signingUp = !signingUp;
@@ -595,7 +601,7 @@ $("login-form").addEventListener("submit", async (e) => {
     password: $("login-pass").value,
     name: $("login-name").value.trim(),
   };
-  if (!body.id || !body.password || (signingUp && !body.name)) return toast("빈칸을 다 채워 줘!");
+  if (!body.id || !body.password || (signingUp && !body.name)) return toast(t("login.blank"));
   $("login-submit").disabled = true;
   try {
     const { token } = await api("auth", body);
@@ -633,10 +639,10 @@ function renderMe() {
   $("me-name").textContent = `${me.name}`;
   const badge = $("me-credits");
   if (me.credits === null) {
-    badge.textContent = "무제한";
+    badge.textContent = t("me.unlimited");
     badge.className = "badge ok";
   } else {
-    badge.textContent = `남은 무료 문제 ${me.credits}개`;
+    badge.textContent = t("me.credits", { n: me.credits });
     badge.className = "badge " + (me.credits > 0 ? "ok" : "none");
   }
 }
@@ -651,7 +657,7 @@ function logout() {
 }
 
 $("btn-logout").onclick = () => {
-  if (confirm("로그아웃할까?")) logout();
+  if (confirm(t("logout.confirm"))) logout();
 };
 $("btn-admin").onclick = openAdmin;
 
@@ -663,7 +669,7 @@ let feedbackRating = "";
 function openFeedback(about = "") {
   feedbackAbout = about;
   feedbackRating = "";
-  $("feedback-about").textContent = about ? `문제: ${about}` : "";
+  $("feedback-about").textContent = about ? t("fb.about", { about }) : "";
   $("feedback-about").hidden = !about;
   $("feedback-text").value = "";
   for (const b of document.querySelectorAll("[data-rating]")) b.setAttribute("aria-pressed", "false");
@@ -683,11 +689,11 @@ $("btn-feedback").onclick = () => openFeedback();
 $("btn-feedback-back").onclick = () => show("home");
 $("btn-feedback-send").onclick = async () => {
   const text = $("feedback-text").value.trim();
-  if (!text && !feedbackRating) return toast("한 줄이라도 적어 줄래?");
+  if (!text && !feedbackRating) return toast(t("fb.empty"));
   $("btn-feedback-send").disabled = true;
   try {
     await api("feedback", { rating: feedbackRating, text, about: feedbackAbout });
-    toast("고마워! 잘 받았어 😊");
+    toast(t("fb.thanks"));
     show("home");
   } catch (err) {
     toast(err.message);
@@ -708,7 +714,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").cat
 
 function openChat() {
   $("chat-problem").textContent = state.problem;
-  $("check-badge").textContent = state.agree ? "✅ 확인됨" : "⚠️ 같이 확인";
+  $("check-badge").textContent = t(state.agree ? "chat.verified" : "chat.unverified");
   $("check-badge").className = "badge " + (state.agree ? "ok" : "warn");
   $("messages").innerHTML = "";
   state.figureSvg = state.figure ? drawFigure(state.figure) : null;
@@ -720,7 +726,7 @@ function openChat() {
 
 function setFigureOpen(open) {
   $("chat-figure").classList.toggle("closed", !open);
-  $("btn-figure-toggle").textContent = open ? "그림 접기 ▲" : "그림 보기 ▼";
+  $("btn-figure-toggle").textContent = t(open ? "chat.figureHide" : "chat.figureShow");
 }
 
 $("btn-figure-toggle").onclick = () => setFigureOpen($("chat-figure").classList.contains("closed"));
@@ -735,7 +741,7 @@ function saveCurrent() {
     sealed: state.sealed,
     messages: state.messages,
   });
-  if (!ok) toast("폰 저장 공간이 부족해서 기록을 못 남겼어.");
+  if (!ok) toast(t("history.full"));
 }
 
 // 지금 푸는 문제를 내려놓는다. 정리는 뒤에서 조용히 한다.
@@ -774,7 +780,7 @@ function summarizePending() {
 function renderHistoryButton() {
   const n = listItems().length;
   $("btn-history").hidden = n === 0;
-  $("btn-history").textContent = `📚 지난 문제 ${n}개`;
+  $("btn-history").textContent = t("history.button", { n });
   summarizePending();
 }
 
@@ -793,16 +799,16 @@ function renderHistory() {
     title.textContent = item.summary?.title || item.problem.split("\n")[0];
     const meta = document.createElement("div");
     meta.className = "sub";
-    const status = !item.summary ? "정리 중…" : item.summary.finished ? "✅ 다 풀었어" : "⏸ 풀다 멈춤";
+    const status = t(!item.summary ? "history.summarizing" : item.summary.finished ? "history.finished" : "history.paused");
     meta.textContent = `${formatDate(item.createdAt)} · ${status}`;
     open.append(title, meta);
     open.onclick = () => (item.summary ? showNote(item) : summarize(item.id));
     const del = document.createElement("button");
     del.className = "history-del";
-    del.setAttribute("aria-label", "지우기");
+    del.setAttribute("aria-label", t("history.delete"));
     del.textContent = "🗑️";
     del.onclick = () => {
-      if (!confirm("이 기록을 지울까? 되돌릴 수 없어.")) return;
+      if (!confirm(t("history.deleteConfirm"))) return;
       deleteItem(item.id);
       renderHistory();
     };
@@ -827,7 +833,7 @@ function showNote(item) {
     li.textContent = step;
     steps.append(li);
   }
-  $("note-answer").textContent = s.answer || "아직 못 풀었어";
+  $("note-answer").textContent = s.answer || t("note.noAnswer");
   $("note-key").textContent = s.key;
   $("note-stuck-box").hidden = !s.stuck;
   $("note-stuck").textContent = s.stuck;

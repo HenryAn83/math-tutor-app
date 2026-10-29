@@ -3,6 +3,7 @@
 // 마스터(관리자) 계정은 Vercel 환경 변수 MASTER_ID, MASTER_PASSWORD로 정한다.
 import crypto from "node:crypto";
 import { redis, getJSON, setJSON, today } from "./_db.js";
+import { say } from "./_i18n.js";
 
 export const FREE_CREDITS = Number(process.env.FREE_CREDITS || 5);
 export const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 30); // 모든 사람 합쳐서 하루 문제 수 (비용 보호)
@@ -64,12 +65,12 @@ const masterUser = () => ({ id: MASTER, name: "관리자", admin: true, unlimite
 export async function signup({ id, password, name }) {
   id = cleanId(id);
   name = String(name || "").trim();
-  if (!/^[a-z0-9_]{3,20}$/.test(id)) throw userError("아이디는 영어 소문자, 숫자, _ 로 3~20자로 만들어 줘.");
-  if (cleanId(process.env.MASTER_ID) === id) throw userError("이 아이디는 쓸 수 없어. 다른 걸로 해 줘.");
-  if (String(password || "").length < 4) throw userError("비밀번호는 4자 이상으로 해 줘.");
-  if (!name || name.length > 20) throw userError("이름을 20자 안으로 적어 줘.");
+  if (!/^[a-z0-9_]{3,20}$/.test(id)) throw userError("badId");
+  if (cleanId(process.env.MASTER_ID) === id) throw userError("idTaken");
+  if (String(password || "").length < 4) throw userError("shortPass");
+  if (!name || name.length > 20) throw userError("badName");
   const user = { id, name, pass: hashPassword(password), pv: 0, unlimited: false, disabled: false, createdAt: Date.now() };
-  if ((await setJSON(userKey(id), user, "NX")) !== "OK") throw userError("이미 있는 아이디야. 다른 걸로 해 줘.");
+  if ((await setJSON(userKey(id), user, "NX")) !== "OK") throw userError("idExists");
   await redis("SADD", "users", id);
   await redis("SET", creditKey(id), FREE_CREDITS);
   return { token: makeToken(user) };
@@ -81,7 +82,7 @@ export async function login({ id, password }) {
   id = cleanId(id);
   const fails = Number((await redis("GET", failKey(id))) || 0);
   if (fails >= MAX_FAILS) {
-    throw userError(`비밀번호를 ${MAX_FAILS}번 틀려서 ${LOCK_MINUTES}분 동안 잠겼어. 잠시 뒤에 다시 해 줘.`);
+    throw userError("locked", { max: MAX_FAILS, min: LOCK_MINUTES });
   }
   try {
     const result = await checkLogin(id, password);
@@ -92,15 +93,15 @@ export async function login({ id, password }) {
       const n = await redis("INCRBY", failKey(id), 1);
       if (n === 1) await redis("EXPIRE", failKey(id), LOCK_MINUTES * 60);
       const left = MAX_FAILS - n;
-      if (left > 0) err.message += ` (${left}번 더 틀리면 ${LOCK_MINUTES}분 잠겨)`;
-      else err.message = `비밀번호를 ${MAX_FAILS}번 틀려서 ${LOCK_MINUTES}분 동안 잠겼어. 잠시 뒤에 다시 해 줘.`;
+      if (left > 0) Object.assign(err, { key: "wrongPassLeft", vars: { left, min: LOCK_MINUTES } });
+      else Object.assign(err, { key: "locked", vars: { max: MAX_FAILS, min: LOCK_MINUTES } });
     }
     throw err;
   }
 }
 
 function wrongPassword() {
-  const e = userError("아이디나 비밀번호가 맞지 않아.");
+  const e = userError("wrongPass");
   e.wrongPassword = true;
   return e;
 }
@@ -113,7 +114,7 @@ async function checkLogin(id, password) {
   }
   const user = id ? await getJSON(userKey(id)) : null;
   if (!user || !checkPassword(password, user.pass)) throw wrongPassword();
-  if (user.disabled) throw userError("이 계정은 지금 쓸 수 없어. 관리자에게 물어봐 줘.");
+  if (user.disabled) throw userError("disabled");
   return { token: makeToken(user) };
 }
 
@@ -131,7 +132,7 @@ export async function requireUser(req, res) {
     if (stored && !stored.disabled && (stored.pv || 0) === data.v) user = stored;
   }
   if (!user) {
-    res.status(401).json({ error: "다시 로그인해 줘.", login: true });
+    res.status(401).json({ error: say(req, "relogin"), login: true });
     return null;
   }
   return user;
@@ -140,7 +141,7 @@ export async function requireUser(req, res) {
 export async function requireAdmin(req, res) {
   const user = await requireUser(req, res);
   if (user && !user.admin) {
-    res.status(403).json({ error: "관리자만 볼 수 있어." });
+    res.status(403).json({ error: say(req, "adminOnly") });
     return null;
   }
   return user;
@@ -185,7 +186,7 @@ export async function dailyUsed() {
 }
 
 export function dailyFull(res) {
-  res.status(429).json({ error: "오늘은 선생님이 문제를 너무 많이 풀어서 마감했어. 내일 다시 만나! 🌙", dailyFull: true });
+  res.status(429).json({ error: say(res.req, "dailyFull"), dailyFull: true });
 }
 
 export async function countUse(user) {
@@ -193,7 +194,7 @@ export async function countUse(user) {
 }
 
 export function noCredits(res) {
-  res.status(402).json({ error: "무료 문제를 다 썼어. 더 풀고 싶으면 '의견 보내기'로 알려 줘!", noCredits: true });
+  res.status(402).json({ error: say(res.req, "noCredits"), noCredits: true });
 }
 
 // ---------- 관리자용 ----------
@@ -237,8 +238,11 @@ export async function updateUser(id, { addCredits, unlimited, disabled, newPassw
   await setJSON(userKey(id), user);
 }
 
-export function userError(message) {
-  const e = new Error(message);
+// key는 _i18n.js의 말 이름(관리자용처럼 그냥 글을 넣으면 그대로 보인다). 보낼 때 아이 언어로 바꾼다.
+export function userError(key, vars = {}) {
+  const e = new Error(key);
   e.userFacing = true;
+  e.key = key;
+  e.vars = vars;
   return e;
 }

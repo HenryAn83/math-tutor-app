@@ -2,6 +2,7 @@
 import { askText, checkAccess, onlyPost, sendError, unseal, MOCK } from "./_lib.js";
 import { tutorSystem } from "./_prompts.js";
 import { requireUser } from "./_auth.js";
+import { say } from "./_i18n.js";
 
 const MAX_TURNS = 60;
 const MAX_MESSAGE = 2000;
@@ -16,22 +17,24 @@ export default async function handler(req, res) {
     session = unseal(sealed);
     if (session.user !== user.id) throw new Error("other user");
   } catch {
-    return res.status(400).json({ error: "문제를 처음부터 다시 올려 줄래?" });
+    return res.status(400).json({ error: say(req, "restart") });
   }
   if (!Array.isArray(messages) || messages.length > MAX_TURNS) {
-    return res.status(400).json({ error: "대화가 너무 길어졌어. 새 문제로 시작해 볼까?" });
+    return res.status(400).json({ error: say(req, "tooLong") });
   }
   const clean = messages
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE) }));
   // 첫 질문은 선생님이 먼저 꺼낸다.
-  const convo = [{ role: "user", content: "(학생이 문제 확인을 마쳤어요. 첫 질문을 해 주세요.)" }, ...clean];
+  const start = session.lang === "en" ? "(The student confirmed the problem. Please ask your first question.)" : "(학생이 문제 확인을 마쳤어요. 첫 질문을 해 주세요.)";
+  const convo = [{ role: "user", content: start }, ...clean];
   if (convo.at(-1).role !== "user") {
-    return res.status(400).json({ error: "메시지를 다시 보내 줄래?" });
+    return res.status(400).json({ error: say(req, "resend") });
   }
   if (MOCK) {
     const first = clean.length === 0;
     session.figure ||= "";
+    if (session.lang === "en") return res.json({ reply: first ? MOCK_EN.first : MOCK_EN.next });
     return res.json({
       reply: first
         ? (session.check.agree ? "" : "이 문제는 선생님도 한 번 더 꼼꼼히 확인하면서 같이 풀어 볼게. ") +
@@ -54,3 +57,8 @@ export default async function handler(req, res) {
     sendError(res, err);
   }
 }
+
+const MOCK_EN = {
+  first: "Let's get started! ⟦∠B⟧ is a right angle. So what kind of side is ⟦side AC⟧?",
+  next: "Nice!\n[Key idea] In a right triangle, the hypotenuse squared equals the sum of the squares of the other two sides. That's the Pythagorean theorem.\n\nSo can you work out AC² = 6² + 8²?",
+};
