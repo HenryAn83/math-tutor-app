@@ -11,6 +11,8 @@ const MAX_PROBLEM = 4000;
 export default async function handler(req, res) {
   if (!onlyPost(req, res) || !checkAccess(req, res)) return;
   const problem = String(req.body?.problem || "").trim();
+  // 화면에 다시 그린 그림이 있으면 그 안의 이름들(선생님이 ⟦선분 AB⟧로 짚을 수 있게)
+  const figure = String(req.body?.figure || "").slice(0, 600);
   if (!problem || problem.length > MAX_PROBLEM) {
     return res.status(400).json({ error: "문제 내용을 다시 확인해 줄래?" });
   }
@@ -54,7 +56,7 @@ export default async function handler(req, res) {
     // 아이 화면에는 "확인됨/확인 필요"만 알려 준다.
     await countUse(user);
     const pid = crypto.randomBytes(8).toString("hex"); // 통계를 한 문제에 한 번만 남기려고
-    res.json({ agree: check.agree, sealed: seal({ problem, check, user: user.id, pid }), credits: await creditsOf(user) });
+    res.json({ agree: check.agree, sealed: seal({ problem, check, figure, user: user.id, pid }), credits: await creditsOf(user) });
   } catch (err) {
     await refundCredit(user).catch(() => {});
     sendError(res, err);

@@ -6,6 +6,7 @@ import { canListen, canSpeak, toggleListening, speak, stopSpeaking, unlockSpeech
 const $ = (id) => document.getElementById(id);
 import { newId, saveItem, listItems, getItem, deleteItem, formatDate, summarizing, useHistoryOf } from "./history.js";
 import { openAdmin } from "./admin.js";
+import { usableFigure, figureLabels, drawFigure, markRefs, resolveRef, blink } from "./figure.js";
 
 // 비밀 링크(?k=코드)의 코드를 기억하고 주소창에서는 지운다.
 const params = new URLSearchParams(location.search);
@@ -26,6 +27,8 @@ const state = {
   id: "", // 기록에 저장할 때 쓰는 이름표
   createdAt: 0,
   agree: true,
+  figure: null, // 다시 그린 문제 그림(figure.js). 없으면 null
+  figureSvg: null, // 대화 화면에 그려진 그림
 };
 
 export function show(name) {
@@ -140,8 +143,23 @@ function showConfirm(index) {
   $("unclear-note").hidden = !p.unclear_parts;
   $("unclear-note").textContent = p.unclear_parts ? `잘 안 보인 부분: ${p.unclear_parts}. 틀렸으면 '고칠게'를 눌러 줘.` : "";
   $("btn-edit").hidden = false;
+  state.figure = usableFigure(p.figure);
+  renderConfirmFigure();
   show("confirm");
 }
+
+// "그림도 이렇게 읽었어" — 다시 그린 그림이 원래 그림과 많이 다르면 빼고 시작할 수 있다.
+function renderConfirmFigure() {
+  const box = $("figure-confirm");
+  box.hidden = !state.figure;
+  $("figure-confirm-svg").replaceChildren(state.figure ? drawFigure(state.figure) : "");
+}
+
+$("btn-figure-off").onclick = () => {
+  state.figure = null;
+  renderConfirmFigure();
+  toast("그림은 빼고 할게. 선생님이 글로 설명해 줄게!");
+};
 
 function startTyping() {
   state.candidates = [];
@@ -152,6 +170,8 @@ function startTyping() {
   $("problem-edit").hidden = false;
   $("problem-edit").value = "";
   $("btn-edit").hidden = true;
+  state.figure = null;
+  renderConfirmFigure();
   show("confirm");
   $("problem-edit").focus();
 }
@@ -168,7 +188,7 @@ async function confirmProblem() {
   if (!state.problem) return toast("문제를 먼저 적어 줘!");
   wait("선생님이 먼저 풀어 보는 중…", "틀린 걸 알려 주면 안 되니까 두 번 풀어서 맞춰 볼게. 30초~1분쯤 걸려.");
   try {
-    const result = await api("check", { problem: state.problem });
+    const result = await api("check", { problem: state.problem, figure: figureLabels(state.figure) });
     state.sealed = result.sealed;
     if (me && result.credits !== undefined) {
       me.credits = result.credits;
@@ -191,11 +211,87 @@ async function confirmProblem() {
 function addBubble(role, text) {
   const div = document.createElement("div");
   div.className = `bubble ${role}`;
-  div.textContent = text;
-  if (role === "assistant" && canSpeak) div.append(replayButton(text));
+  if (role === "assistant") {
+    // 그림 이야기(⟦선분 AB⟧)와 핵심설명을 찾아서 꾸민다
+    text = markRefs(text, state.figure);
+    renderTutorText(div, text);
+    if (canSpeak) div.append(replayButton(text));
+  } else {
+    div.textContent = text;
+  }
   $("messages").append(div);
   div.scrollIntoView({ behavior: "smooth", block: "end" });
   return div;
+}
+
+// 선생님 말을 [{ text, emphasis }] 덩어리로 나눈다.
+// "[핵심설명]"이나 "오늘 배운 핵심:"으로 시작하는 줄부터 빈 줄까지가 핵심설명이다.
+const KEY_START = /^\s*\**\s*(\[\s*핵심\s*설명\s*\]|핵심\s*설명\s*[:：]|오늘 배운 핵심\s*[:：])\**\s*/;
+
+function tutorSegments(text) {
+  const segments = [];
+  let inKey = false;
+  for (const line of text.split("\n")) {
+    if (KEY_START.test(line)) {
+      inKey = true;
+      segments.push({ text: line.replace(KEY_START, ""), emphasis: true });
+      continue;
+    }
+    if (inKey && !line.trim()) inKey = false;
+    const last = segments.at(-1);
+    if (last && last.emphasis === inKey) last.text += "\n" + line;
+    else segments.push({ text: line, emphasis: inKey });
+  }
+  return segments.map((x) => ({ ...x, text: x.text.trim() })).filter((x) => x.text);
+}
+
+function renderTutorText(div, text) {
+  for (const seg of tutorSegments(text)) {
+    const box = document.createElement("div");
+    if (seg.emphasis) {
+      box.className = "key-block";
+      const title = document.createElement("div");
+      title.className = "key-title";
+      title.textContent = "핵심설명";
+      box.append(title);
+    }
+    const body = document.createElement("div");
+    for (const part of seg.text.split(/(⟦[^⟧]*⟧)/)) {
+      if (!part.startsWith("⟦")) {
+        body.append(part);
+        continue;
+      }
+      const label = part.slice(1, -1);
+      const refs = resolveRef(label, state.figure);
+      if (!refs.length) {
+        body.append(label);
+        continue;
+      }
+      // 누르면 그림에서 다시 깜빡인다
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "fig-ref";
+      b.textContent = label;
+      b.onclick = () => showOnFigure(refs);
+      body.append(b);
+    }
+    box.append(body);
+    div.append(box);
+  }
+}
+
+// 문장 속 ⟦ ⟧들을 차례로 깜빡인다.
+let blinkTimers = [];
+function blinkSentence(sentence) {
+  const refs = [...sentence.matchAll(/⟦([^⟧]*)⟧/g)].map((m) => resolveRef(m[1], state.figure)).filter((r) => r.length);
+  refs.forEach((r, i) => blinkTimers.push(setTimeout(() => showOnFigure(r), i * 1300)));
+}
+
+function showOnFigure(refs) {
+  if (!state.figureSvg) return;
+  // 그림을 접어 뒀으면 펴서 보여 준다
+  setFigureOpen(true);
+  blink(state.figureSvg, refs, state.figure);
 }
 
 // 선생님 말풍선마다 붙는 "다시 듣기" 버튼. 읽는 중에 누르면 멈춘다.
@@ -214,7 +310,16 @@ function replayButton(text) {
 }
 
 function playText(text, button) {
-  speak(text, {
+  blinkTimers.forEach(clearTimeout);
+  blinkTimers = [];
+  // 소리가 실제로 안 나는 폰이면(읽기 시작 신호가 안 오면) 그냥 바로 깜빡인다
+  let started = false;
+  blinkTimers.push(setTimeout(() => started || blinkSentence(text), 1500));
+  speak(tutorSegments(text), {
+    onPart: (sentence) => {
+      started = true;
+      blinkSentence(sentence);
+    },
     onEnd: () => {
       if (playingButton !== button) return;
       playingButton = null;
@@ -235,7 +340,9 @@ async function sendToTutor() {
     typing.remove();
     state.messages.push({ role: "assistant", content: reply });
     const bubble = addBubble("assistant", reply);
-    if (soundOn && canSpeak) playText(reply, bubble.querySelector(".replay"));
+    const marked = markRefs(reply, state.figure);
+    if (soundOn && canSpeak) playText(marked, bubble.querySelector(".replay"));
+    else blinkSentence(marked); // 소리가 꺼져 있으면 말풍선이 뜰 때 바로 깜빡인다
   } catch (err) {
     typing.remove();
     // 실패한 학생 메시지는 빼서 다시 보낼 수 있게 한다
@@ -308,7 +415,7 @@ if (canSpeak) {
       unlockSpeech();
       const buttons = $("messages").querySelectorAll(".replay");
       const last = state.messages.findLast((m) => m.role === "assistant");
-      if (last && buttons.length) playText(last.content, buttons[buttons.length - 1]);
+      if (last && buttons.length) playText(markRefs(last.content, state.figure), buttons[buttons.length - 1]);
       else speak("소리 켰어!");
     } else {
       stopSpeaking();
@@ -604,8 +711,19 @@ function openChat() {
   $("check-badge").textContent = state.agree ? "✅ 확인됨" : "⚠️ 같이 확인";
   $("check-badge").className = "badge " + (state.agree ? "ok" : "warn");
   $("messages").innerHTML = "";
+  state.figureSvg = state.figure ? drawFigure(state.figure) : null;
+  $("chat-figure").hidden = !state.figure;
+  $("chat-figure-svg").replaceChildren(state.figureSvg || "");
+  setFigureOpen(true);
   show("chat");
 }
+
+function setFigureOpen(open) {
+  $("chat-figure").classList.toggle("closed", !open);
+  $("btn-figure-toggle").textContent = open ? "그림 접기 ▲" : "그림 보기 ▼";
+}
+
+$("btn-figure-toggle").onclick = () => setFigureOpen($("chat-figure").classList.contains("closed"));
 
 function saveCurrent() {
   if (!state.id) return;

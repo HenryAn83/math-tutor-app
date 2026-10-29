@@ -18,7 +18,47 @@ export default async function handler(req, res) {
   }
   if (MOCK) {
     return res.json({
-      problems: [{ text: "일차방정식 3(x - 2) = 2x + 5 를 풀어라.", diagram: "", unclear_parts: "" }],
+      problems: [
+        {
+          text: "그림의 △ABC에서 ∠B = 90°, AB = 6cm, BC = 8cm일 때, 변 AC의 길이를 구하여라.",
+          diagram: "직각삼각형 ABC, 직각은 B. AB = 6cm, BC = 8cm",
+          unclear_parts: "",
+          figure: {
+            kind: "geometry",
+            points: [
+              { name: "A", x: 0, y: 6, label: true },
+              { name: "B", x: 0, y: 0, label: true },
+              { name: "C", x: 8, y: 0, label: true },
+            ],
+            segments: [
+              { from: "A", to: "B", text: "6cm", dashed: false },
+              { from: "B", to: "C", text: "8cm", dashed: false },
+              { from: "C", to: "A", text: "", dashed: false },
+            ],
+            angles: [{ vertex: "B", from: "A", to: "C", text: "", right: true }],
+            circles: [],
+            axes: { x_min: 0, x_max: 0, y_min: 0, y_max: 0 },
+            curves: [],
+          },
+        },
+        {
+          text: "일차함수 y = 2x - 1 의 그래프 위의 점 P(2, 3)에 대하여 y절편을 구하여라.",
+          diagram: "좌표평면에 직선 y = 2x - 1 과 점 P(2, 3)",
+          unclear_parts: "",
+          figure: {
+            kind: "graph",
+            points: [
+              { name: "P", x: 2, y: 3, label: true },
+              { name: "(0, -1)", x: 0, y: -1, label: false },
+            ],
+            segments: [],
+            angles: [],
+            circles: [],
+            axes: { x_min: -3, x_max: 4, y_min: -3, y_max: 5 },
+            curves: [{ name: "y=2x-1", expr: "2*x-1", x_from: -3, x_to: 4 }],
+          },
+        },
+      ],
       photo_tip: "",
     });
   }
