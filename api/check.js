@@ -3,7 +3,7 @@
 // 여기서 무료 문제 1회를 쓴다(선생님 쪽 오류로 실패하면 돌려준다).
 import { askJSON, checkAccess, onlyPost, sendError, seal, MOCK } from "./_lib.js";
 import { SOLVE_SYSTEM, SOLVE_SCHEMA, COMPARE_SYSTEM, COMPARE_SCHEMA } from "./_prompts.js";
-import { requireUser, useCredit, refundCredit, countUse, creditsOf, noCredits } from "./_auth.js";
+import { requireUser, useCredit, refundCredit, countUse, creditsOf, noCredits, dailyFull } from "./_auth.js";
 import crypto from "node:crypto";
 
 const MAX_PROBLEM = 4000;
@@ -18,7 +18,9 @@ export default async function handler(req, res) {
   }
   const user = await requireUser(req, res);
   if (!user) return;
-  if (!(await useCredit(user))) return noCredits(res);
+  const ticket = await useCredit(user);
+  if (ticket === "credits") return noCredits(res);
+  if (ticket === "daily") return dailyFull(res);
   try {
     let check;
     if (MOCK) {

@@ -94,16 +94,42 @@ function renderFeedback(list) {
   for (const f of list) {
     const item = el("div", "admin-item");
     const face = f.rating === "up" ? "👍 " : f.rating === "down" ? "👎 " : "";
+    const tags = [DIFFICULTY[f.difficulty], f.questions && `질문 ${QUESTIONS[f.questions]}`].filter(Boolean).join(" · ");
     item.append(
-      el("div", "", face + (f.text || "")),
+      el("div", "", face + (f.text || tags)),
       el("div", "sub", `${f.name} · ${formatDate(f.at)}${f.about ? ` · ${f.about}` : ""}`),
     );
     box.append(item);
   }
 }
 
+const MONTHLY_BUDGET = 20; // 콘솔에 걸어 둔 월 한도($)
+const DIFFICULTY = { easy: "😊 쉬웠어", ok: "🙂 적당", hard: "😵 어려웠어" };
+const QUESTIONS = { many: "질문 많았어", ok: "적당", few: "적었어" };
+
+function renderMoney(data) {
+  const box = $("admin-money");
+  box.innerHTML = "";
+  const usd = (n) => `$${n.toFixed(2)}`;
+  const monthWarn = data.month.cost >= MONTHLY_BUDGET * 0.8 ? " ⚠️ 한도 가까움" : "";
+  box.append(
+    el("div", "", `오늘 문제: ${data.today.used} / ${data.today.limit}개`),
+    el("div", "", `오늘 비용: ${usd(data.today.cost)}`),
+    el("div", "", `이번 달 비용: ${usd(data.month.cost)} / 한도 $${MONTHLY_BUDGET}${monthWarn}`),
+    el("div", "sub", "실제로 쓴 토큰으로 계산한 값이에요. 정확한 청구액은 Anthropic 콘솔에서 확인하세요."),
+  );
+}
+
+function summarize(counts, names) {
+  return Object.entries(names)
+    .map(([k, label]) => `${label} ${counts[k] || 0}`)
+    .join(" · ");
+}
+
 async function load() {
   const data = await api("admin", { action: "overview" });
+  renderMoney(data);
+  $("admin-quick").textContent = `난이도: ${summarize(data.quick.difficulty, DIFFICULTY)}\n질문 수: ${summarize(data.quick.questions, QUESTIONS)}`;
   renderUsers(data.users);
   $("admin-stat-total").textContent = `(${data.stats.total}문제)`;
   renderGroups($("admin-units"), data.stats.units);

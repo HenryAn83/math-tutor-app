@@ -2,6 +2,7 @@
 // 파일 이름이 _ 로 시작하면 Vercel이 주소(API)로 만들지 않는다.
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
+import { redis, today } from "./_db.js";
 
 export const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 export const MOCK = process.env.MOCK === "1";
@@ -60,6 +61,32 @@ function baseRequest({ system, messages, effort, maxTokens }) {
   };
 }
 
+// 실제로 쓴 토큰으로 비용을 계산해 오늘·이번 달 합계에 더한다. 단위: 백만분의 1달러.
+// 가격($/100만 토큰): 입력, 출력, 캐시 읽기. 모르는 모델이면 비싼 쪽으로 잡는다.
+const PRICES = [
+  ["claude-haiku", 0.1, 0.5, 0.01],
+  ["claude-sonnet", 2, 10, 0.2],
+  ["claude-opus-5-5", 4, 20, 0.2],
+  ["claude-opus", 5, 25, 0.5],
+];
+
+async function recordCost(response) {
+  const u = response.usage || {};
+  const [, input, output, cacheRead] = PRICES.find(([p]) => String(response.model).startsWith(p)) || [, 10, 50, 1];
+  const dollars =
+    ((u.input_tokens || 0) * input +
+      (u.cache_creation_input_tokens || 0) * input * 1.25 +
+      (u.cache_read_input_tokens || 0) * cacheRead +
+      (u.output_tokens || 0) * output) /
+    1e6;
+  const micro = Math.round(dollars * 1e6);
+  const day = today();
+  await Promise.all([
+    redis("INCRBY", `cost:day:${day}`, micro),
+    redis("INCRBY", `cost:month:${day.slice(0, 7)}`, micro),
+  ]).catch((e) => console.error("cost error:", e.message));
+}
+
 function textOf(response) {
   if (response.stop_reason === "refusal") {
     const e = new Error("refusal");
@@ -79,6 +106,7 @@ export async function askJSON({ system, messages, schema, effort = "medium", max
     ...baseRequest({ system, messages, effort, maxTokens }),
     output_config: { effort, format: { type: "json_schema", schema } },
   });
+  await recordCost(response);
   return JSON.parse(textOf(response));
 }
 
@@ -87,6 +115,7 @@ export async function askText({ system, messages, effort = "medium", maxTokens =
   const response = await getClient().beta.messages.create(
     baseRequest({ system, messages, effort, maxTokens }),
   );
+  await recordCost(response);
   return textOf(response);
 }
 
