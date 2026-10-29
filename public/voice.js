@@ -1,6 +1,9 @@
 // 음성 기능: 브라우저에 들어 있는 무료 기능만 쓴다(서버, 비용 없음).
 // 🎤 말하기 → 글자로 바꿔 입력칸에 넣기 / 🔊 선생님 말 읽어 주기
 
+import { lang, t, SPEECH } from "./i18n.js";
+
+const SPEECH_LANG = SPEECH[lang];
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 export const canListen = !!Recognition;
 export const canSpeak = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
@@ -17,7 +20,7 @@ export function toggleListening({ onText, onState, onError }) {
   }
   stopSpeaking();
   recognizer = new Recognition();
-  recognizer.lang = "ko-KR";
+  recognizer.lang = SPEECH_LANG;
   recognizer.interimResults = true;
   recognizer.continuous = false;
   recognizer.onresult = (e) => {
@@ -26,11 +29,11 @@ export function toggleListening({ onText, onState, onError }) {
   };
   recognizer.onerror = (e) => {
     if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-      onError("마이크를 쓸 수 있게 허용해 줘. (설정 → 브라우저 → 마이크)");
+      onError(t("voice.denied"));
     } else if (e.error === "no-speech") {
-      onError("소리가 안 들렸어. 🎤 누르고 다시 말해 줄래?");
+      onError(t("voice.silent"));
     } else if (e.error !== "aborted") {
-      onError("음성 인식이 잘 안 됐어. 글자로 써 줄래?");
+      onError(t("voice.failed"));
     }
   };
   recognizer.onend = () => {
@@ -52,10 +55,11 @@ const LETTERS = {
 // 수식을 말로 읽기 좋게 바꾼다. 예: "x² + 3/4 = 1" → "엑스 제곱 더하기 4분의 3 는 1"
 // 화면에 보이는 글은 그대로 두고, 소리로 읽을 때만 바꾼다.
 export function mathToSpeech(text) {
+  if (lang === "en") return mathToSpeechEn(text);
   return (
     text
-      // 이모지 빼기
-      .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, "")
+      // 이모지, 그림 짚기 표시(⟦ ⟧) 빼기
+      .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}⟦⟧]/gu, "")
       // 분수 a/b → b분의 a
       .replace(/(\(?[\w.²³]+\)?)\s*\/\s*(\(?[\w.²³]+\)?)/g, "$2분의 $1")
       // x^2 처럼 쓴 거듭제곱
@@ -99,11 +103,56 @@ export function mathToSpeech(text) {
   );
 }
 
-let koVoice = null;
+// 영어 수식 읽기. 예: "x² + 3/4 = 1" → "x squared plus 3 over 4 equals 1"
+// 글자 하나(x, y, A)는 영어 음성이 알아서 잘 읽으니 그대로 둔다.
+function mathToSpeechEn(text) {
+  return text
+    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}⟦⟧]/gu, "")
+    .replace(/(\(?[\w.²³]+\)?)\s*\/\s*(\(?[\w.²³]+\)?)/g, "$1 over $2")
+    .replace(/\^\s*2(?!\d)/g, "²")
+    .replace(/\^\s*3(?!\d)/g, "³")
+    .replace(/\^\s*(\d+)/g, " to the power of $1")
+    .replace(/[⁴⁵⁶⁷⁸⁹]/g, (c) => ` to the power of ${"⁴⁵⁶⁷⁸⁹".indexOf(c) + 4}`)
+    .replace(/²/g, " squared")
+    .replace(/³/g, " cubed")
+    .replace(/√\s*\(([^)]*)\)/g, "the square root of $1")
+    .replace(/√/g, "the square root of ")
+    .replace(/×/g, " times ")
+    .replace(/÷/g, " divided by ")
+    .replace(/≤/g, " is less than or equal to ")
+    .replace(/≥/g, " is greater than or equal to ")
+    .replace(/≠/g, " is not equal to ")
+    .replace(/π/g, "pi")
+    .replace(/∠/g, "angle ")
+    .replace(/△/g, "triangle ")
+    .replace(/∥/g, " is parallel to ")
+    .replace(/⊥/g, " is perpendicular to ")
+    .replace(/°/g, " degrees")
+    .replace(/%/g, " percent")
+    .replace(/∴/g, "so ")
+    .replace(/→/g, ", ")
+    .replace(/[·•]/g, " ")
+    .replace(/\s=\s|=/g, " equals ")
+    .replace(/\s\+\s|\+/g, " plus ")
+    .replace(/([\w)²³]|squared|cubed)\s+[-−]\s+(?=[\w(√])/g, "$1 minus ")
+    .replace(/([\d)²³])[-−](?=[\w(√])|([\w)])[-−](?=\d)/g, (m, a, b) => `${a ?? b} minus `)
+    .replace(/(^|[\s(])[-−](?=\d)/g, "$1negative ")
+    .replace(/\s<\s/g, " is less than ")
+    .replace(/\s>\s/g, " is greater than ")
+    // 글자 a는 "uh"로 읽혀서 "A"로
+    .replace(/(?<![A-Za-z'])a(?![A-Za-z'])(?=\s*(?:[-−+=×÷²³)]|squared|plus|minus|equals|times|over))/g, "A")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+let voice = null;
 function pickVoice() {
   const voices = speechSynthesis.getVoices();
-  koVoice = voices.find((v) => v.lang === "ko-KR" && /yuna|female|여/i.test(v.name)) ||
-    voices.find((v) => v.lang?.startsWith("ko")) || null;
+  const base = SPEECH_LANG.split("-")[0];
+  const nice = lang === "ko" ? /yuna|female|여/i : /samantha|google us|female|aria|jenny/i;
+  voice = voices.find((v) => v.lang?.replace("_", "-") === SPEECH_LANG && nice.test(v.name)) ||
+    voices.find((v) => v.lang?.replace("_", "-") === SPEECH_LANG) ||
+    voices.find((v) => v.lang?.startsWith(base)) || null;
 }
 if (canSpeak) {
   pickVoice();
@@ -120,25 +169,51 @@ function splitSentences(text) {
 
 let current = null; // 지금 읽는 중인 것 { onEnd }
 
-// text를 읽는다. 다 읽거나 멈추면 onEnd()를 한 번 부른다.
-export function speak(text, { onEnd } = {}) {
+// 핵심설명은 조금 천천히, 조금 높게 읽고 앞에 "핵심 설명!"을 붙인다.
+// 브라우저 기본 음성은 감정 어투를 못 바꾸고 속도와 높낮이만 바꿀 수 있다.
+const NORMAL = { rate: 1.0, pitch: 1.0 };
+const EMPHASIS = { rate: 0.9, pitch: 1.15 };
+const TITLE = { rate: 0.95, pitch: 1.25 };
+
+// text(글 하나, 또는 [{ text, emphasis }] 목록)를 읽는다. 다 읽거나 멈추면 onEnd()를 한 번 부른다.
+// onPart(원래 문장)는 문장마다 읽기 시작할 때 불린다(그림 깜빡임을 말과 맞추려고).
+export function speak(text, { onEnd, onPart } = {}) {
   if (!canSpeak) return;
   stopSpeaking();
-  const parts = splitSentences(mathToSpeech(text));
+  const segments = typeof text === "string" ? [{ text }] : text;
+  const parts = [];
+  for (const seg of segments) {
+    if (seg.emphasis) parts.push({ spoken: t("chat.keySpoken"), raw: "", voice: TITLE, pause: true });
+    for (const raw of splitSentences(seg.text)) {
+      const spoken = mathToSpeech(raw);
+      if (spoken) parts.push({ spoken, raw, voice: seg.emphasis ? EMPHASIS : NORMAL });
+    }
+  }
   if (!parts.length) return onEnd?.();
   const me = { onEnd };
   current = me;
   parts.forEach((part, i) => {
-    const u = new SpeechSynthesisUtterance(part);
-    u.lang = "ko-KR";
-    if (koVoice) u.voice = koVoice;
-    u.rate = 1.0;
+    const u = new SpeechSynthesisUtterance(part.spoken);
+    u.lang = SPEECH_LANG;
+    if (voice) u.voice = voice;
+    u.rate = part.voice.rate;
+    u.pitch = part.voice.pitch;
+    u.onstart = () => {
+      if (current === me) onPart?.(part.raw);
+    };
     if (i === parts.length - 1) {
       u.onend = u.onerror = () => {
         if (current === me) finish();
       };
     }
     speechSynthesis.speak(u);
+    // 제목 뒤에 잠깐 쉬기(소리 없는 짧은 말)
+    if (part.pause) {
+      const gap = new SpeechSynthesisUtterance(" ");
+      gap.volume = 0;
+      gap.lang = SPEECH_LANG;
+      speechSynthesis.speak(gap);
+    }
   });
 }
 

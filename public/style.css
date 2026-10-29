@@ -113,3 +113,78 @@ textarea.card { resize: vertical; }
 #btn-sound[aria-pressed="true"] { background: var(--ok); }
 .bubble .replay { display: block; margin-top: 6px; padding: 2px 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
 .bubble .replay.playing { color: var(--me); font-weight: 600; }
+
+/* 계정, 의견, 관리 */
+.me-row { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 15px; }
+.me-row .badge { margin: 0; }
+.badge.none { background: var(--warn); color: var(--warn-text); }
+#screen-feedback .btn[aria-pressed="true"] { background: var(--ok); color: var(--ok-text); border-color: var(--ok-text); }
+#screen-admin summary { cursor: pointer; font-weight: 600; }
+.admin-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; font-size: 15px; }
+.admin-item { border-top: 1px solid var(--line); padding-top: 10px; }
+.admin-item:first-child { border-top: 0; padding-top: 0; }
+.admin-item .title { font-weight: 600; }
+.admin-item .row { flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.admin-item .row .btn { flex: none; }
+.admin-item .off { color: var(--muted); text-decoration: line-through; }
+
+/* 다시 그린 문제 그림, 빨간 깜빡임 */
+:root { --hl: #e53935; --fig: #1d2233; --fig-grid: #e8eaf1; }
+@media (prefers-color-scheme: dark) { :root { --hl: #ff6b6b; --fig: #eef0f6; --fig-grid: #2a2f44; } }
+.figure-box { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.figure-box .btn { align-self: stretch; }
+.figure-svg { display: block; width: 100%; max-width: 300px; height: auto; margin: 0 auto; overflow: visible; }
+.chat-figure { flex: none; background: var(--card); border-bottom: 1px solid var(--line); padding: 6px 12px 0; display: flex; flex-direction: column; align-items: center; }
+#chat-figure-svg { width: 100%; }
+.chat-figure .figure-svg { height: min(30dvh, 260px); width: 100%; max-width: none; }
+.chat-figure.closed #chat-figure-svg { display: none; }
+.chat-figure .btn.link { padding: 2px 8px 6px; font-size: 13px; }
+.fig-line { stroke: var(--fig); stroke-width: 2; fill: none; stroke-linecap: round; }
+.fig-line.dashed { stroke-dasharray: 6 5; }
+.fig-axis { stroke: var(--muted); stroke-width: 1.4; }
+.fig-grid { stroke: var(--fig-grid); stroke-width: 1; }
+.fig-angle { stroke: var(--fig); stroke-width: 1.4; }
+.fig-dot { fill: var(--fig); }
+.fig-name { fill: var(--fig); font-size: 15px; font-weight: 700; font-style: italic; }
+.fig-len { fill: var(--muted); font-size: 12px; }
+.fig-hl { animation: fig-blink .8s ease-in-out 3; }
+line.fig-hl, path.fig-hl, circle.fig-line.fig-hl { stroke: var(--hl) !important; stroke-width: 5; }
+.fig-dot.fig-hl { fill: var(--hl); r: 6px; }
+@keyframes fig-blink { 0%, 100% { opacity: 1; } 50% { opacity: .15; } }
+.fig-ref { display: inline; border: 0; padding: 0 2px; margin: 0; background: none; font: inherit; color: var(--hl); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* 핵심설명 */
+.key-block { margin: 6px 0; padding: 8px 10px; border-left: 4px solid var(--hl); background: color-mix(in srgb, var(--hl) 8%, transparent); border-radius: 8px; }
+.key-title { color: var(--hl); font-weight: 800; font-size: 15px; margin-bottom: 2px; }
+.key-title::before { content: "📌 "; }
+/* 문제 끝 버튼 의견 */
+.choice-row { margin-top: 8px; }
+.choice-row .btn { padding: 10px 6px; font-size: 15px; }
+.choice-row .btn[aria-pressed="true"] { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
+
+/* 사용법 슬라이드: 옆으로 밀어서 넘김 */
+#screen-tutorial { min-height: 100dvh; }
+.slides { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -16px; flex: 1; }
+.slides::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 100%; scroll-snap-align: center; padding: 8px 16px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.slide h2 { margin-top: 12px; }
+.slide p { margin: 0; color: var(--muted); }
+.slide-art { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px 16px; min-height: 220px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.mock-btn { border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-weight: 600; background: var(--bg); }
+.mock-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.mock-btn.small { padding: 8px 12px; font-size: 15px; flex: 1; }
+.mock-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; font-size: 19px; background: var(--bg); }
+.mock-row { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.mock-bubble { max-width: 85%; padding: 8px 12px; border-radius: 16px; text-align: left; font-size: 15px; }
+.mock-bubble.tutor { align-self: flex-start; background: var(--bg); border: 1px solid var(--line); }
+.mock-bubble.me { align-self: flex-end; background: var(--me); color: #fff; }
+.mock-replay { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.mock-chip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 14px; background: var(--bg); }
+.mock-chip.on { background: var(--ok); }
+.mock-mic { font-size: 26px; background: #ff5a5f; border-radius: 14px; padding: 6px 12px; animation: blink 1s ease-in-out infinite; }
+.mock-input { flex: 1; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; color: var(--muted); background: var(--bg); }
+.dots { display: flex; justify-content: center; gap: 8px; }
+.dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.dots span.on { background: var(--primary); width: 22px; border-radius: 4px; }
+#admin-quick { white-space: pre-line; margin-top: 6px; }
+.lang-btn { font-size: 14px; margin-top: 4px; }
