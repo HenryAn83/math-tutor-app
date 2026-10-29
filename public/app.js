@@ -339,11 +339,86 @@ if (canListen) {
 
 $("btn-new").onclick = () => {
   stopSpeaking();
+  const talked = state.messages.some((m) => m.role === "user");
   if (state.messages.length < 2 || confirm("새 문제로 갈까? 지금까지 푼 과정은 '지난 문제'에 정리해 둘게.")) {
+    const problem = state.problem.split("\n")[0].slice(0, 100);
     leaveCurrent();
-    show("home");
+    // 한마디라도 나눈 문제면 버튼 두 번으로 끝나는 짧은 의견을 받는다
+    if (talked) openQuick(problem);
+    else show("home");
   }
 };
+
+// ---------- 문제 끝 버튼 의견 ----------
+
+const quick = { about: "", difficulty: "", questions: "" };
+
+function openQuick(about) {
+  Object.assign(quick, { about, difficulty: "", questions: "" });
+  for (const b of document.querySelectorAll("#screen-quick [data-value]")) b.setAttribute("aria-pressed", "false");
+  show("quick");
+}
+
+for (const row of document.querySelectorAll("#screen-quick [data-group]")) {
+  for (const b of row.querySelectorAll("[data-value]")) {
+    b.onclick = () => {
+      quick[row.dataset.group] = b.dataset.value;
+      for (const x of row.querySelectorAll("[data-value]")) x.setAttribute("aria-pressed", String(x === b));
+    };
+  }
+}
+
+$("btn-quick-skip").onclick = () => show("home");
+$("btn-quick-send").onclick = () => {
+  if (!quick.difficulty && !quick.questions) return toast("하나만 골라 줘! 아니면 '건너뛰기'");
+  // 기다리지 않고 바로 홈으로. 실패해도 아이에게는 알리지 않는다.
+  api("feedback", { about: quick.about, difficulty: quick.difficulty, questions: quick.questions }).catch(() => {});
+  toast("고마워! 😊");
+  show("home");
+};
+
+// ---------- 사용법 ----------
+
+const slides = $("slides");
+const slideCount = slides.children.length;
+let tutorialKey = "";
+
+function slideIndex() {
+  return Math.round(slides.scrollLeft / slides.clientWidth);
+}
+
+function renderDots() {
+  const i = slideIndex();
+  $("slide-dots").innerHTML = "";
+  for (let n = 0; n < slideCount; n++) {
+    const d = document.createElement("span");
+    if (n === i) d.className = "on";
+    $("slide-dots").append(d);
+  }
+  $("btn-slide-next").textContent = i === slideCount - 1 ? "시작하기!" : "다음";
+}
+
+function openTutorial() {
+  show("tutorial");
+  slides.scrollTo({ left: 0 });
+  renderDots();
+}
+
+function closeTutorial() {
+  try {
+    if (tutorialKey) localStorage.setItem(tutorialKey, "1");
+  } catch {}
+  show("home");
+}
+
+slides.addEventListener("scroll", () => requestAnimationFrame(renderDots));
+$("btn-slide-next").onclick = () => {
+  const i = slideIndex();
+  if (i >= slideCount - 1) return closeTutorial();
+  slides.scrollTo({ left: (i + 1) * slides.clientWidth, behavior: "smooth" });
+};
+$("btn-slide-skip").onclick = closeTutorial;
+$("btn-tutorial").onclick = openTutorial;
 $("chat-form").addEventListener("submit", (e) => {
   e.preventDefault();
   sendMessage($("chat-input").value);
@@ -436,7 +511,14 @@ async function startSession() {
   useHistoryOf(me.id);
   $("btn-admin").hidden = !me.admin;
   renderMe();
-  show("home");
+  // 이 폰에서 이 아이디로 처음 들어왔으면 사용법부터 보여 준다
+  tutorialKey = `tutorialDone:${me.id}`;
+  let seen = true;
+  try {
+    seen = localStorage.getItem(tutorialKey) === "1";
+  } catch {}
+  if (seen || me.admin) show("home");
+  else openTutorial();
 }
 
 function renderMe() {

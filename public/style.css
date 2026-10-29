@@ -127,3 +127,34 @@ textarea.card { resize: vertical; }
 .admin-item .row { flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .admin-item .row .btn { flex: none; }
 .admin-item .off { color: var(--muted); text-decoration: line-through; }
+
+/* 문제 끝 버튼 의견 */
+.choice-row { margin-top: 8px; }
+.choice-row .btn { padding: 10px 6px; font-size: 15px; }
+.choice-row .btn[aria-pressed="true"] { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
+
+/* 사용법 슬라이드: 옆으로 밀어서 넘김 */
+#screen-tutorial { min-height: 100dvh; }
+.slides { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -16px; flex: 1; }
+.slides::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 100%; scroll-snap-align: center; padding: 8px 16px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.slide h2 { margin-top: 12px; }
+.slide p { margin: 0; color: var(--muted); }
+.slide-art { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px 16px; min-height: 220px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.mock-btn { border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-weight: 600; background: var(--bg); }
+.mock-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.mock-btn.small { padding: 8px 12px; font-size: 15px; flex: 1; }
+.mock-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; font-size: 19px; background: var(--bg); }
+.mock-row { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.mock-bubble { max-width: 85%; padding: 8px 12px; border-radius: 16px; text-align: left; font-size: 15px; }
+.mock-bubble.tutor { align-self: flex-start; background: var(--bg); border: 1px solid var(--line); }
+.mock-bubble.me { align-self: flex-end; background: var(--me); color: #fff; }
+.mock-replay { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.mock-chip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 14px; background: var(--bg); }
+.mock-chip.on { background: var(--ok); }
+.mock-mic { font-size: 26px; background: #ff5a5f; border-radius: 14px; padding: 6px 12px; animation: blink 1s ease-in-out infinite; }
+.mock-input { flex: 1; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; color: var(--muted); background: var(--bg); }
+.dots { display: flex; justify-content: center; gap: 8px; }
+.dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.dots span.on { background: var(--primary); width: 22px; border-radius: 4px; }
+#admin-quick { white-space: pre-line; margin-top: 6px; }

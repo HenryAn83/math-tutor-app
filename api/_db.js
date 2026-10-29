@@ -40,6 +40,11 @@ export async function readList(key, count) {
   return rows.map((r) => JSON.parse(r));
 }
 
+// 하루·한 달 기준은 헨리가 사는 미국 중부 시간으로 센다.
+export function today() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" }); // 2026-10-29
+}
+
 // ---------- 테스트용 메모리 저장소 ----------
 
 const mem = new Map();
@@ -58,6 +63,8 @@ function memory([cmd, key, ...args]) {
       mem.set(key, args[0]);
       return "OK";
     }
+    case "EXPIRE":
+      return 1; // 메모리 저장소는 서버를 끄면 어차피 사라진다
     case "DEL":
       return Number(mem.delete(key));
     case "INCRBY":

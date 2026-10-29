@@ -7,9 +7,14 @@ export default async function handler(req, res) {
   if (!onlyPost(req, res) || !checkAccess(req, res)) return;
   const user = await requireUser(req, res);
   if (!user) return;
-  const { rating, text, about } = req.body || {};
+  const { rating, text, about, difficulty, questions } = req.body || {};
   const clean = String(text || "").trim().slice(0, 2000);
-  if (!clean && !["up", "down"].includes(rating)) {
+  const pick = (v, allowed) => (allowed.includes(v) ? v : "");
+  const quick = {
+    difficulty: pick(difficulty, ["easy", "ok", "hard"]),
+    questions: pick(questions, ["many", "ok", "few"]),
+  };
+  if (!clean && !["up", "down"].includes(rating) && !quick.difficulty && !quick.questions) {
     return res.status(400).json({ error: "한 줄이라도 적어 줄래?" });
   }
   try {
@@ -22,6 +27,7 @@ export default async function handler(req, res) {
         rating: ["up", "down"].includes(rating) ? rating : "",
         text: clean,
         about: String(about || "").slice(0, 100),
+        ...quick,
       },
       1000,
     );

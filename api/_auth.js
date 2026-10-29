@@ -2,9 +2,12 @@
 // 테스트 단계라 아이디, 비밀번호, 이름만 받는다(이메일, 나이 등은 받지 않음).
 // 마스터(관리자) 계정은 Vercel 환경 변수 MASTER_ID, MASTER_PASSWORD로 정한다.
 import crypto from "node:crypto";
-import { redis, getJSON, setJSON } from "./_db.js";
+import { redis, getJSON, setJSON, today } from "./_db.js";
 
 export const FREE_CREDITS = Number(process.env.FREE_CREDITS || 5);
+export const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 30); // 모든 사람 합쳐서 하루 문제 수 (비용 보호)
+const MAX_FAILS = 5; // 비밀번호를 이만큼 틀리면 잠깐 잠근다
+const LOCK_MINUTES = 15;
 const MASTER = "@master"; // 일반 아이디로는 만들 수 없는 이름
 const TOKEN_DAYS = 180;
 
@@ -72,15 +75,44 @@ export async function signup({ id, password, name }) {
   return { token: makeToken(user) };
 }
 
+const failKey = (id) => `fail:${id}`;
+
 export async function login({ id, password }) {
   id = cleanId(id);
+  const fails = Number((await redis("GET", failKey(id))) || 0);
+  if (fails >= MAX_FAILS) {
+    throw userError(`비밀번호를 ${MAX_FAILS}번 틀려서 ${LOCK_MINUTES}분 동안 잠겼어. 잠시 뒤에 다시 해 줘.`);
+  }
+  try {
+    const result = await checkLogin(id, password);
+    await redis("DEL", failKey(id));
+    return result;
+  } catch (err) {
+    if (err.wrongPassword) {
+      const n = await redis("INCRBY", failKey(id), 1);
+      if (n === 1) await redis("EXPIRE", failKey(id), LOCK_MINUTES * 60);
+      const left = MAX_FAILS - n;
+      if (left > 0) err.message += ` (${left}번 더 틀리면 ${LOCK_MINUTES}분 잠겨)`;
+      else err.message = `비밀번호를 ${MAX_FAILS}번 틀려서 ${LOCK_MINUTES}분 동안 잠겼어. 잠시 뒤에 다시 해 줘.`;
+    }
+    throw err;
+  }
+}
+
+function wrongPassword() {
+  const e = userError("아이디나 비밀번호가 맞지 않아.");
+  e.wrongPassword = true;
+  return e;
+}
+
+async function checkLogin(id, password) {
   const masterId = cleanId(process.env.MASTER_ID);
   if (masterId && process.env.MASTER_PASSWORD && id === masterId) {
-    if (!same(password, process.env.MASTER_PASSWORD)) throw userError("아이디나 비밀번호가 맞지 않아.");
+    if (!same(password, process.env.MASTER_PASSWORD)) throw wrongPassword();
     return { token: makeToken(masterUser()) };
   }
   const user = id ? await getJSON(userKey(id)) : null;
-  if (!user || !checkPassword(password, user.pass)) throw userError("아이디나 비밀번호가 맞지 않아.");
+  if (!user || !checkPassword(password, user.pass)) throw wrongPassword();
   if (user.disabled) throw userError("이 계정은 지금 쓸 수 없어. 관리자에게 물어봐 줘.");
   return { token: makeToken(user) };
 }
@@ -119,20 +151,41 @@ export async function creditsOf(user) {
   return Number((await redis("GET", creditKey(user.id))) || 0);
 }
 
-// 문제 하나를 시작할 때 1회 차감. 남은 게 없으면 false.
+const dailyKey = () => `daily:${today()}`;
+
+// 문제 하나를 시작할 때 1회 차감. 남은 게 없으면 "credits", 오늘 전체 한도를 넘으면 "daily".
+// 관리자는 둘 다 빼고 센다.
 export async function useCredit(user) {
-  if (user.unlimited) return true;
+  if (user.admin) return "ok";
+  const used = await redis("INCRBY", dailyKey(), 1);
+  if (used === 1) await redis("EXPIRE", dailyKey(), 60 * 60 * 48);
+  if (used > DAILY_LIMIT) {
+    await redis("INCRBY", dailyKey(), -1);
+    return "daily";
+  }
+  if (user.unlimited) return "ok";
   const left = await redis("DECRBY", creditKey(user.id), 1);
   if (left < 0) {
     await redis("INCRBY", creditKey(user.id), 1);
-    return false;
+    await redis("INCRBY", dailyKey(), -1);
+    return "credits";
   }
-  return true;
+  return "ok";
 }
 
 // 선생님 쪽 오류로 문제를 못 시작했으면 돌려준다.
 export async function refundCredit(user) {
+  if (user.admin) return;
+  await redis("INCRBY", dailyKey(), -1);
   if (!user.unlimited) await redis("INCRBY", creditKey(user.id), 1);
+}
+
+export async function dailyUsed() {
+  return Number((await redis("GET", dailyKey())) || 0);
+}
+
+export function dailyFull(res) {
+  res.status(429).json({ error: "오늘은 선생님이 문제를 너무 많이 풀어서 마감했어. 내일 다시 만나! 🌙", dailyFull: true });
 }
 
 export async function countUse(user) {
@@ -179,6 +232,7 @@ export async function updateUser(id, { addCredits, unlimited, disabled, newPassw
     if (String(newPassword).length < 4) throw userError("비밀번호는 4자 이상으로 해 주세요.");
     user.pass = hashPassword(newPassword);
     user.pv = (user.pv || 0) + 1; // 예전 로그인은 풀린다
+    await redis("DEL", failKey(id)); // 잠금도 푼다
   }
   await setJSON(userKey(id), user);
 }
