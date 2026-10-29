@@ -187,3 +187,4 @@ line.fig-hl, path.fig-hl, circle.fig-line.fig-hl { stroke: var(--hl) !important;
 .dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
 .dots span.on { background: var(--primary); width: 22px; border-radius: 4px; }
 #admin-quick { white-space: pre-line; margin-top: 6px; }
+.lang-btn { font-size: 14px; margin-top: 4px; }

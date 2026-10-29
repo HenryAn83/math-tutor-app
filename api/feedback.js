@@ -2,6 +2,7 @@
 import { checkAccess, onlyPost, sendError } from "./_lib.js";
 import { requireUser } from "./_auth.js";
 import { pushList } from "./_db.js";
+import { say } from "./_i18n.js";
 
 export default async function handler(req, res) {
   if (!onlyPost(req, res) || !checkAccess(req, res)) return;
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
     questions: pick(questions, ["many", "ok", "few"]),
   };
   if (!clean && !["up", "down"].includes(rating) && !quick.difficulty && !quick.questions) {
-    return res.status(400).json({ error: "한 줄이라도 적어 줄래?" });
+    return res.status(400).json({ error: say(req, "emptyFeedback") });
   }
   try {
     await pushList(

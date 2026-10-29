@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="수학쌤" />
-  <title>수학쌤</title>
+  <title data-i18n="app.name">수학쌤</title>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
@@ -17,62 +17,65 @@
   <main id="app">
     <!-- 0. 입장 코드 -->
     <section id="screen-code" class="screen" hidden>
-      <h1>수학쌤 <span class="wave">🔒</span></h1>
-      <p class="lead">입장 코드를 넣어 줘.<br />한 번만 넣으면 이 폰이 기억해.</p>
+      <h1><span data-i18n="app.name">수학쌤</span> <span class="wave">🔒</span></h1>
+      <p class="lead" data-i18n-html="code.lead">입장 코드를 넣어 줘.<br />한 번만 넣으면 이 폰이 기억해.</p>
       <form id="code-form" class="code-form">
-        <input id="code-input" class="card" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="입장 코드" />
-        <button class="btn primary big" type="submit">들어가기</button>
+        <input id="code-input" class="card" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="입장 코드" data-i18n-ph="code.ph" />
+        <button class="btn primary big" type="submit" data-i18n="code.enter">들어가기</button>
       </form>
+      <button class="btn link lang-btn" type="button" data-lang-toggle></button>
     </section>
 
     <!-- 0-1. 로그인 / 가입 -->
     <section id="screen-login" class="screen" hidden>
-      <h1>수학쌤 <span class="wave">👋</span></h1>
+      <h1><span data-i18n="app.name">수학쌤</span> <span class="wave">👋</span></h1>
       <p id="login-lead" class="lead">아이디로 들어와 줘.</p>
       <form id="login-form" class="code-form">
-        <input id="login-id" class="card" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="아이디 (영어 소문자, 숫자)" />
-        <input id="login-pass" class="card" type="password" autocomplete="current-password" placeholder="비밀번호 (4자 이상)" />
-        <input id="login-name" class="card" type="text" autocomplete="nickname" placeholder="이름 (선생님이 부를 이름)" hidden />
+        <input id="login-id" class="card" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="아이디 (영어 소문자, 숫자)" data-i18n-ph="login.idPh" />
+        <input id="login-pass" class="card" type="password" autocomplete="current-password" placeholder="비밀번호 (4자 이상)" data-i18n-ph="login.passPh" />
+        <input id="login-name" class="card" type="text" autocomplete="nickname" placeholder="이름 (선생님이 부를 이름)" data-i18n-ph="login.namePh" hidden />
         <button id="login-submit" class="btn primary big" type="submit">들어가기</button>
       </form>
       <button id="login-switch" class="btn link">처음이야? 가입하기</button>
-      <p id="login-free" class="sub" hidden>가입하면 무료로 문제 5개를 풀 수 있어.</p>
+      <p id="login-free" class="sub" data-i18n="login.free" hidden>가입하면 무료로 문제 5개를 풀 수 있어.</p>
+      <button class="btn link lang-btn" type="button" data-lang-toggle></button>
     </section>
 
     <!-- 1. 시작 -->
     <section id="screen-home" class="screen" hidden>
-      <h1>수학쌤 <span class="wave">👋</span></h1>
+      <h1><span data-i18n="app.name">수학쌤</span> <span class="wave">👋</span></h1>
       <div class="me-row">
         <span id="me-name"></span>
         <span id="me-credits" class="badge ok"></span>
       </div>
-      <p class="lead">모르는 문제를 찍어서 올려 줘.<br />답 대신 질문으로 같이 풀어 볼게.</p>
+      <p class="lead" data-i18n-html="home.lead">모르는 문제를 찍어서 올려 줘.<br />답 대신 질문으로 같이 풀어 볼게.</p>
       <label class="btn primary big">
-        📷 문제 찍기
+        <span data-i18n="home.camera">📷 문제 찍기</span>
         <input id="input-camera" type="file" accept="image/*" capture="environment" hidden />
       </label>
       <label class="btn big">
-        🖼️ 앨범에서 고르기
+        <span data-i18n="home.album">🖼️ 앨범에서 고르기</span>
         <input id="input-album" type="file" accept="image/*" hidden />
       </label>
-      <button id="btn-type" class="btn link">사진 말고 직접 쓸래</button>
+      <button id="btn-type" class="btn link" data-i18n="home.type">사진 말고 직접 쓸래</button>
       <button id="btn-history" class="btn" hidden>📚 지난 문제</button>
       <div class="row">
-        <button id="btn-feedback" class="btn">💬 의견 보내기</button>
+        <button id="btn-feedback" class="btn" data-i18n="home.feedback">💬 의견 보내기</button>
         <button id="btn-admin" class="btn" hidden>🛠️ 관리</button>
       </div>
       <div class="tips">
-        <b>잘 찍는 요령</b>
+        <b data-i18n="home.tipsTitle">잘 찍는 요령</b>
         <ul>
-          <li>문제 하나만 화면 가득</li>
-          <li>그림자 없이 밝은 곳에서</li>
-          <li>종이를 똑바로, 흔들리지 않게</li>
+          <li data-i18n="home.tip1">문제 하나만 화면 가득</li>
+          <li data-i18n="home.tip2">그림자 없이 밝은 곳에서</li>
+          <li data-i18n="home.tip3">종이를 똑바로, 흔들리지 않게</li>
         </ul>
       </div>
       <div class="row">
-        <button id="btn-tutorial" class="btn link">📖 사용법</button>
-        <button id="btn-logout" class="btn link">로그아웃</button>
+        <button id="btn-tutorial" class="btn link" data-i18n="home.tutorial">📖 사용법</button>
+        <button id="btn-logout" class="btn link" data-i18n="home.logout">로그아웃</button>
       </div>
+      <button class="btn link lang-btn" type="button" data-lang-toggle></button>
     </section>
 
     <!-- 2. 기다리기 -->
@@ -90,26 +93,26 @@
       <p id="unclear-note" class="note" hidden></p>
       <div id="figure-confirm" class="card figure-box" hidden>
         <div id="figure-confirm-svg"></div>
-        <p class="sub">그림도 이렇게 읽었어. 선생님이 설명할 때 이 그림에 빨갛게 표시해 줄게.</p>
-        <button id="btn-figure-off" class="btn small">그림이 많이 달라 (그림 빼기)</button>
+        <p class="sub" data-i18n="confirm.figureNote">그림도 이렇게 읽었어. 선생님이 설명할 때 이 그림에 빨갛게 표시해 줄게.</p>
+        <button id="btn-figure-off" class="btn small" data-i18n="confirm.figureOff">그림이 많이 달라 (그림 빼기)</button>
       </div>
-      <textarea id="problem-edit" class="card" rows="7" hidden placeholder="문제를 그대로 적어 줘. 그림이 있으면 그림 내용도 (예: 각 B = 90°, AB = 6cm)"></textarea>
+      <textarea id="problem-edit" class="card" rows="7" hidden data-i18n-ph="confirm.editPh" placeholder="문제를 그대로 적어 줘. 그림이 있으면 그림 내용도 (예: 각 B = 90°, AB = 6cm)"></textarea>
       <div class="row">
-        <button id="btn-yes" class="btn primary">맞아, 시작!</button>
-        <button id="btn-edit" class="btn">고칠게</button>
+        <button id="btn-yes" class="btn primary" data-i18n="confirm.yes">맞아, 시작!</button>
+        <button id="btn-edit" class="btn" data-i18n="confirm.edit">고칠게</button>
       </div>
-      <button id="btn-retake" class="btn link">처음으로</button>
+      <button id="btn-retake" class="btn link" data-i18n="common.home">처음으로</button>
     </section>
 
     <!-- 4. 대화 -->
     <section id="screen-chat" class="screen chat" hidden>
       <header class="chat-head">
         <details>
-          <summary>📄 오늘 문제 <span id="check-badge" class="badge"></span></summary>
+          <summary><span data-i18n="chat.problem">📄 오늘 문제</span> <span id="check-badge" class="badge"></span></summary>
           <div id="chat-problem" class="problem"></div>
         </details>
-        <button id="btn-sound" class="btn small" hidden aria-pressed="false" title="선생님 말 읽어 주기">🔇</button>
-        <button id="btn-new" class="btn small">새 문제</button>
+        <button id="btn-sound" class="btn small" hidden aria-pressed="false" title="선생님 말 읽어 주기" data-i18n-title="chat.soundTitle">🔇</button>
+        <button id="btn-new" class="btn small" data-i18n="chat.new">새 문제</button>
       </header>
       <div id="chat-figure" class="chat-figure" hidden>
         <div id="chat-figure-svg"></div>
@@ -117,24 +120,24 @@
       </div>
       <div id="messages" class="messages" aria-live="polite"></div>
       <div class="quick">
-        <button data-quick="힌트 좀 줘">💡 힌트</button>
-        <button data-quick="잘 모르겠어">🤔 모르겠어</button>
-        <button data-quick="왜 그렇게 되는지 다시 설명해 줘">🔁 다시 설명</button>
+        <button data-quick="hint" data-i18n="chat.hint">💡 힌트</button>
+        <button data-quick="dunno" data-i18n="chat.dunno">🤔 모르겠어</button>
+        <button data-quick="again" data-i18n="chat.again">🔁 다시 설명</button>
       </div>
       <form id="chat-form" class="composer">
-        <button id="btn-mic" class="btn mic" type="button" hidden aria-label="말로 하기">🎤</button>
-        <textarea id="chat-input" rows="1" placeholder="생각을 적어 봐" enterkeyhint="send"></textarea>
-        <button class="btn primary" type="submit">보내기</button>
+        <button id="btn-mic" class="btn mic" type="button" hidden aria-label="말로 하기" data-i18n-aria="chat.mic">🎤</button>
+        <textarea id="chat-input" rows="1" placeholder="생각을 적어 봐" data-i18n-ph="chat.ph" enterkeyhint="send"></textarea>
+        <button class="btn primary" type="submit" data-i18n="common.send">보내기</button>
       </form>
     </section>
 
     <!-- 5. 지난 문제 목록 -->
     <section id="screen-history" class="screen" hidden>
-      <h2>📚 지난 문제</h2>
-      <p class="sub">이 폰 안에만 저장돼. 사진은 저장하지 않아.</p>
+      <h2 data-i18n="history.title">📚 지난 문제</h2>
+      <p class="sub" data-i18n="history.note">이 폰 안에만 저장돼. 사진은 저장하지 않아.</p>
       <div id="history-list" class="history-list"></div>
-      <p id="history-empty" class="sub" hidden>아직 푼 문제가 없어.</p>
-      <button id="btn-history-back" class="btn link">처음으로</button>
+      <p id="history-empty" class="sub" data-i18n="history.empty" hidden>아직 푼 문제가 없어.</p>
+      <button id="btn-history-back" class="btn link" data-i18n="common.home">처음으로</button>
     </section>
 
     <!-- 6. 풀이 노트 -->
@@ -142,62 +145,62 @@
       <h2 id="note-title"></h2>
       <p id="note-date" class="sub"></p>
       <details class="card">
-        <summary>📄 문제 보기</summary>
+        <summary data-i18n="note.problem">📄 문제 보기</summary>
         <div id="note-problem" class="problem"></div>
       </details>
       <div class="card">
-        <b>풀이 과정</b>
+        <b data-i18n="note.steps">풀이 과정</b>
         <ol id="note-steps" class="note-steps"></ol>
-        <div><b>답:</b> <span id="note-answer"></span></div>
+        <div><b data-i18n="note.answer">답:</b> <span id="note-answer"></span></div>
       </div>
-      <div class="card key"><b>💡 핵심</b><div id="note-key"></div></div>
-      <div id="note-stuck-box" class="card stuck"><b>⚠️ 다음에 조심할 점</b><div id="note-stuck"></div></div>
-      <button id="btn-note-feedback" class="btn">💬 이 문제 의견 남기기</button>
-      <button id="btn-note-back" class="btn">목록으로</button>
+      <div class="card key"><b data-i18n="note.key">💡 핵심</b><div id="note-key"></div></div>
+      <div id="note-stuck-box" class="card stuck"><b data-i18n="note.stuck">⚠️ 다음에 조심할 점</b><div id="note-stuck"></div></div>
+      <button id="btn-note-feedback" class="btn" data-i18n="note.feedback">💬 이 문제 의견 남기기</button>
+      <button id="btn-note-back" class="btn" data-i18n="note.back">목록으로</button>
     </section>
 
     <!-- 7. 의견 보내기 -->
     <section id="screen-feedback" class="screen" hidden>
-      <h2>💬 의견 보내기</h2>
+      <h2 data-i18n="home.feedback">💬 의견 보내기</h2>
       <p id="feedback-about" class="sub"></p>
-      <p class="sub">선생님이 어땠어? 좋았던 점, 불편했던 점, 틀린 설명, 뭐든 좋아.</p>
+      <p class="sub" data-i18n="fb.lead">선생님이 어땠어? 좋았던 점, 불편했던 점, 틀린 설명, 뭐든 좋아.</p>
       <div class="row">
-        <button id="fb-up" class="btn" data-rating="up" aria-pressed="false">👍 좋았어</button>
-        <button id="fb-down" class="btn" data-rating="down" aria-pressed="false">👎 별로야</button>
+        <button id="fb-up" class="btn" data-rating="up" aria-pressed="false" data-i18n="fb.up">👍 좋았어</button>
+        <button id="fb-down" class="btn" data-rating="down" aria-pressed="false" data-i18n="fb.down">👎 별로야</button>
       </div>
-      <textarea id="feedback-text" class="card" rows="6" maxlength="2000" placeholder="예: 질문이 너무 많았어 / 설명이 이해가 잘 됐어 / 사진을 잘못 읽었어"></textarea>
-      <button id="btn-feedback-send" class="btn primary big">보내기</button>
-      <button id="btn-feedback-back" class="btn link">처음으로</button>
+      <textarea id="feedback-text" class="card" rows="6" maxlength="2000" data-i18n-ph="fb.ph" placeholder="예: 질문이 너무 많았어 / 설명이 이해가 잘 됐어 / 사진을 잘못 읽었어"></textarea>
+      <button id="btn-feedback-send" class="btn primary big" data-i18n="common.send">보내기</button>
+      <button id="btn-feedback-back" class="btn link" data-i18n="common.home">처음으로</button>
     </section>
 
     <!-- 7-1. 문제 끝 버튼 의견 -->
     <section id="screen-quick" class="screen" hidden>
-      <h2>수고했어! 👏</h2>
-      <p class="sub">버튼만 눌러 줘. 선생님이 더 좋아지는 데 써.</p>
+      <h2 data-i18n="quick.title">수고했어! 👏</h2>
+      <p class="sub" data-i18n="quick.lead">버튼만 눌러 줘. 선생님이 더 좋아지는 데 써.</p>
       <div class="card">
-        <b>이 문제 어땠어?</b>
+        <b data-i18n="quick.how">이 문제 어땠어?</b>
         <div class="row choice-row" data-group="difficulty">
-          <button class="btn" data-value="easy">😊 쉬웠어</button>
-          <button class="btn" data-value="ok">🙂 적당</button>
-          <button class="btn" data-value="hard">😵 어려웠어</button>
+          <button class="btn" data-value="easy" data-i18n="quick.easy">😊 쉬웠어</button>
+          <button class="btn" data-value="ok" data-i18n="quick.okDiff">🙂 적당</button>
+          <button class="btn" data-value="hard" data-i18n="quick.hard">😵 어려웠어</button>
         </div>
       </div>
       <div class="card">
-        <b>선생님 질문은?</b>
+        <b data-i18n="quick.questions">선생님 질문은?</b>
         <div class="row choice-row" data-group="questions">
-          <button class="btn" data-value="many">많았어</button>
-          <button class="btn" data-value="ok">적당</button>
-          <button class="btn" data-value="few">적었어</button>
+          <button class="btn" data-value="many" data-i18n="quick.many">많았어</button>
+          <button class="btn" data-value="ok" data-i18n="quick.okQ">적당</button>
+          <button class="btn" data-value="few" data-i18n="quick.few">적었어</button>
         </div>
       </div>
-      <button id="btn-quick-send" class="btn primary big">보내기</button>
-      <button id="btn-quick-skip" class="btn link">건너뛰기</button>
+      <button id="btn-quick-send" class="btn primary big" data-i18n="common.send">보내기</button>
+      <button id="btn-quick-skip" class="btn link" data-i18n="common.skip">건너뛰기</button>
     </section>
 
     <!-- 7-2. 사용법 (처음 로그인하면 한 번 보여 줌) -->
     <section id="screen-tutorial" class="screen" hidden>
       <div id="slides" class="slides">
-        <div class="slide">
+        <div class="slide" data-i18n-html="tut.1">
           <div class="slide-art">
             <div class="mock-btn primary">📷 문제 찍기</div>
             <div class="mock-btn">🖼️ 앨범에서 고르기</div>
@@ -205,7 +208,7 @@
           <h2>1. 문제를 찍어 올려</h2>
           <p>문제 하나만 화면 가득, 밝은 곳에서 찍어 줘.<br />앨범에서 골라도 되고, 직접 적어도 돼.</p>
         </div>
-        <div class="slide">
+        <div class="slide" data-i18n-html="tut.2">
           <div class="slide-art">
             <div class="mock-card">3(x − 2) = 2x + 5</div>
             <div class="mock-row"><span class="mock-btn primary small">맞아, 시작!</span><span class="mock-btn small">고칠게</span></div>
@@ -213,7 +216,7 @@
           <h2>2. 읽은 게 맞는지 확인</h2>
           <p>선생님이 읽은 문제가 맞으면 <b>맞아, 시작!</b><br />틀린 글자가 있으면 <b>고칠게</b>를 눌러 고쳐 줘.</p>
         </div>
-        <div class="slide">
+        <div class="slide" data-i18n-html="tut.3">
           <div class="slide-art">
             <div class="mock-bubble tutor">괄호를 풀면 어떻게 될까?</div>
             <div class="mock-bubble me">3x − 6 이요!</div>
@@ -222,14 +225,14 @@
           <h2>3. 채팅으로 같이 풀어</h2>
           <p>선생님이 질문을 하나씩 해. 생각을 적고 <b>보내기</b>.<br />막히면 <b>💡 힌트</b>나 <b>🤔 모르겠어</b>를 눌러도 돼.</p>
         </div>
-        <div class="slide">
+        <div class="slide" data-i18n-html="tut.4">
           <div class="slide-art">
             <div class="mock-row"><span class="mock-mic">🎤</span><span class="mock-input">듣고 있어… 말해 봐</span></div>
           </div>
           <h2>4. 말로 대답해도 돼</h2>
           <p><b>🎤</b>를 누르고 말하면 글로 바뀌어.<br />잘못 들었으면 고친 다음 <b>보내기</b>를 눌러 줘.</p>
         </div>
-        <div class="slide">
+        <div class="slide" data-i18n-html="tut.5">
           <div class="slide-art">
             <div class="mock-bubble tutor">좋아! 다음은 x를 한쪽으로 모아 볼까?<span class="mock-replay">🔊 다시 듣기</span></div>
             <div class="mock-row"><span class="mock-chip on">🔊</span><span class="mock-chip">🔇</span></div>
@@ -237,7 +240,7 @@
           <h2>5. 선생님 말을 들어</h2>
           <p>선생님 말은 소리로도 읽어 줘.<br />위쪽 <b>🔊</b>로 켜고 끄고, 말풍선 밑 <b>다시 듣기</b>로 또 들어.</p>
         </div>
-        <div class="slide">
+        <div class="slide" data-i18n-html="tut.6">
           <div class="slide-art">
             <div class="mock-btn">📚 지난 문제</div>
             <div class="mock-btn">💬 의견 보내기</div>
@@ -248,7 +251,7 @@
       </div>
       <div id="slide-dots" class="dots"></div>
       <button id="btn-slide-next" class="btn primary big">다음</button>
-      <button id="btn-slide-skip" class="btn link">건너뛰기</button>
+      <button id="btn-slide-skip" class="btn link" data-i18n="common.skip">건너뛰기</button>
     </section>
 
     <!-- 8. 관리 (마스터 계정만) -->

@@ -3,6 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 import { redis, today } from "./_db.js";
+import { say } from "./_i18n.js";
 
 export const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 export const MOCK = process.env.MOCK === "1";
@@ -22,7 +23,7 @@ export function checkAccess(req, res) {
     given.length === expected.length &&
     crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
   if (!ok) {
-    res.status(401).json({ error: "이 링크로는 들어올 수 없어요. 받은 링크를 다시 열어 주세요." });
+    res.status(401).json({ error: say(req, "badLink") });
     return false;
   }
   return true;
@@ -38,13 +39,12 @@ export function onlyPost(req, res) {
 
 // 사진, 대화 내용은 어디에도 저장하지 않는다. 오류도 종류만 남긴다.
 export function sendError(res, err) {
-  if (err?.userFacing) return res.status(400).json({ error: err.message });
+  const req = res.req;
+  if (err?.userFacing) return res.status(400).json({ error: say(req, err.key || err.message, err.vars) });
   console.error("api error:", err?.status || "", err?.name || "", err?.error?.error?.type || "");
   const busy = err?.status === 429 || err?.status === 529;
   res.status(500).json({
-    error: busy
-      ? "선생님이 잠깐 바빠요. 10초 뒤에 다시 해 볼래?"
-      : "앗, 연결에 문제가 생겼어. 다시 한 번 해 볼래?",
+    error: say(req, busy ? "busy" : "network"),
   });
 }
 

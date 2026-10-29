@@ -3,6 +3,8 @@
 // 사진이 기울거나 흐리면 위치가 자주 빗나가기 때문이다.
 // 선생님 말 속 ⟦선분 AB⟧ 표시(또는 표시 없이 쓴 "선분 AB", "∠ABC" 같은 말)를 찾아 그림과 이어 준다.
 
+import { lang, t } from "./i18n.js";
+
 const NS = "http://www.w3.org/2000/svg";
 const SIZE = 300; // 그림 한 변(화면 단위)
 const PAD = 26;
@@ -42,10 +44,11 @@ export function usableFigure(f) {
 export function figureLabels(f) {
   if (!f) return "";
   const parts = [];
-  if (f.points.length) parts.push(`점: ${f.points.map((p) => p.name).join(", ")}`);
-  if (f.segments.length) parts.push(`선분: ${f.segments.map((s) => s.from + s.to).join(", ")}`);
-  if (f.curves.length) parts.push(`그래프: ${f.curves.map((c) => c.name || c.expr).join(", ")}`);
-  if (f.kind === "graph") parts.push("x축, y축");
+  const en = lang === "en";
+  if (f.points.length) parts.push(`${en ? "Points" : "점"}: ${f.points.map((p) => p.name).join(", ")}`);
+  if (f.segments.length) parts.push(`${en ? "Segments" : "선분"}: ${f.segments.map((s) => s.from + s.to).join(", ")}`);
+  if (f.curves.length) parts.push(`${en ? "Graphs" : "그래프"}: ${f.curves.map((c) => c.name || c.expr).join(", ")}`);
+  if (f.kind === "graph") parts.push(en ? "x-axis, y-axis" : "x축, y축");
   return parts.join(" / ").slice(0, 600);
 }
 
@@ -60,7 +63,7 @@ function el(tag, attrs = {}, parent) {
 
 // 그림을 그린 <svg>를 돌려준다. 각 부분에는 data-ref 이름표가 붙는다(깜빡일 때 찾으려고).
 export function drawFigure(f) {
-  const svg = el("svg", { viewBox: `0 0 ${SIZE} ${SIZE}`, class: "figure-svg", role: "img", "aria-label": "문제 그림" });
+  const svg = el("svg", { viewBox: `0 0 ${SIZE} ${SIZE}`, class: "figure-svg", role: "img", "aria-label": t("figure.aria") });
   const map = makeMap(f);
   const P = Object.fromEntries(f.points.map((p) => [p.name, map(p.x, p.y)]));
 
@@ -301,30 +304,31 @@ export function compile(expr) {
 
 // ---------- 선생님 말 → 그림 부분 찾기 ----------
 
+// 영어는 norm()으로 소문자가 된 뒤에 비교한다(예: "Segment AB" → "segmentab").
 const KINDS = [
-  [/^(선분|변|직선|반직선)/, "seg"],
-  [/^(∠|각)/, "angle"],
-  [/^(△|삼각형)/, "poly"],
-  [/^(□|사각형)/, "poly"],
-  [/^(점)/, "point"],
-  [/^(원)/, "circle"],
+  [/^(선분|변|직선|반직선|segment|side|line|ray)/, "seg"],
+  [/^(∠|각|angle)/, "angle"],
+  [/^(△|삼각형|triangle)/, "poly"],
+  [/^(□|사각형|quadrilateral|rectangle|square|parallelogram|trapezoid|rhombus)/, "poly"],
+  [/^(점|point)/, "point"],
+  [/^(원|circle)/, "circle"],
 ];
 
 // 표시 안의 글(예: "선분 AB")을 그림 속 data-ref 목록으로 바꾼다. 못 찾으면 [].
 export function resolveRef(text, f) {
   if (!f) return [];
   const t = norm(text);
-  if (/^x축/.test(t) && f.kind === "graph") return ["axis:x"];
-  if (/^y축/.test(t) && f.kind === "graph") return ["axis:y"];
+  if (/^(x축|(the)?x-?axis)/.test(t) && f.kind === "graph") return ["axis:x"];
+  if (/^(y축|(the)?y-?axis)/.test(t) && f.kind === "graph") return ["axis:y"];
   for (const c of f.curves) {
     const n = norm(c.name || c.expr);
-    if (t === n || t.replace(/^(그래프|직선|함수|일차함수|이차함수)/, "").replace(/(의)?그래프$/, "") === n) return ["curve:" + n];
+    if (t === n || t.replace(/^(그래프|직선|함수|일차함수|이차함수|(the)?(graphof|lineof|line|graph|function|parabola))/, "").replace(/(의)?그래프$/, "") === n) return ["curve:" + n];
   }
-  const exact = f.points.find((p) => norm(p.name) === t || "점" + norm(p.name) === t);
+  const exact = f.points.find((p) => norm(p.name) === t || "점" + norm(p.name) === t || "point" + norm(p.name) === t);
   if (exact) return ["point:" + exact.name];
 
   let kind = "";
-  let rest = t;
+  let rest = t.replace(/^the(?=segment|side|line|ray|angle|triangle|point|circle)/, "");
   for (const [re, k] of KINDS) {
     if (re.test(rest)) {
       kind = k;
@@ -366,7 +370,8 @@ function splitNames(s, points) {
 }
 
 // 표시 없이 쓴 말도 찾아서 ⟦ ⟧로 감싼다(그림에 실제로 있는 것만).
-const LOOSE = /(선분|변|직선|반직선|삼각형|사각형|각|점|원)\s?([A-Z][A-Z'′₁₂₃0-9]*)|[∠△□]\s?([A-Z][A-Z'′₁₂₃0-9]*)/g;
+const LOOSE =
+  /(선분|변|직선|반직선|삼각형|사각형|각|점|원)\s?([A-Z][A-Z'′₁₂₃0-9]*)|[∠△□]\s?([A-Z][A-Z'′₁₂₃0-9]*)|\b(?:[Ss]egment|[Ss]ide|[Ll]ine|[Rr]ay|[Tt]riangle|[Aa]ngle|[Pp]oint|[Cc]ircle)\s([A-Z][A-Z'′₁₂₃0-9]*)\b/g;
 
 export function markRefs(text, f) {
   if (!f) return text;

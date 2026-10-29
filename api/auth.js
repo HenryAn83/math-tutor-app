@@ -2,13 +2,14 @@
 import { checkAccess, onlyPost, sendError } from "./_lib.js";
 import { signup, login, requireUser, creditsOf } from "./_auth.js";
 import { HAS_DB } from "./_db.js";
+import { say } from "./_i18n.js";
 
 export default async function handler(req, res) {
   if (!onlyPost(req, res) || !checkAccess(req, res)) return;
   const { action, id, password, name } = req.body || {};
   // Vercel에 올렸는데 저장소가 없으면 가입한 아이디가 금방 사라지니 미리 알려 준다.
   if (process.env.VERCEL && !HAS_DB) {
-    return res.status(503).json({ error: "저장소가 아직 연결되지 않았어요. Vercel Storage에서 Upstash를 연결해 주세요." });
+    return res.status(503).json({ error: say(req, "noDb") });
   }
   try {
     if (action === "signup") return res.json(await signup({ id, password, name }));
