@@ -1,11 +1,11 @@
 // 아이·보호자가 남기는 의견. 관리자 화면에서 본다.
-import { checkAccess, onlyPost, sendError } from "./_lib.js";
+import { onlyPost, sendError } from "./_lib.js";
 import { requireUser } from "./_auth.js";
 import { pushList } from "./_db.js";
 import { say } from "./_i18n.js";
 
 export default async function handler(req, res) {
-  if (!onlyPost(req, res) || !checkAccess(req, res)) return;
+  if (!onlyPost(req, res)) return;
   const user = await requireUser(req, res);
   if (!user) return;
   const { rating, text, about, difficulty, questions } = req.body || {};

@@ -9,8 +9,9 @@ import { newId, saveItem, listItems, getItem, deleteItem, formatDate, summarizin
 import { openAdmin } from "./admin.js";
 import { usableFigure, figureLabels, drawFigure, markRefs, resolveRef, blink } from "./figure.js";
 
-// 비밀 링크(?k=코드)의 코드를 기억하고 주소창에서는 지운다.
 applyStatic();
+
+// 초대 링크(?k=코드)의 코드는 가입할 때 쓰려고 기억하고, 주소창에서는 지운다.
 
 const params = new URLSearchParams(location.search);
 if (params.get("k")) {
@@ -57,24 +58,21 @@ function wait(text, sub = "") {
 export async function api(path, body) {
   const res = await fetch(`/api/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-lang": lang, "x-access-code": accessCode, Authorization: `Bearer ${authToken}` },
+    headers: { "Content-Type": "application/json", "x-lang": lang, Authorization: `Bearer ${authToken}` },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && data.login) {
-    // 로그인이 풀렸으면 다시 로그인하게 한다
-    logout();
-  } else if (res.status === 401) {
-    // 코드가 바뀌었거나 틀리면 다시 입력하게 한다
-    localStorage.removeItem("accessCode");
-    accessCode = "";
-    show("code");
-  }
+  // 로그인이 풀렸으면 다시 로그인하게 한다
+  if (res.status === 401 && data.login) logout();
   if (res.status === 402 && me) {
     me.credits = 0;
     renderMe();
   }
-  if (!res.ok) throw new Error(data.error || t("err.network"));
+  if (!res.ok) {
+    const err = new Error(data.error || t("err.network"));
+    if (data.badInvite) err.code = "badInvite";
+    throw err;
+  }
   return data;
 }
 
@@ -546,41 +544,17 @@ for (const b of document.querySelectorAll("[data-quick]")) {
   b.onclick = () => sendMessage(t("quick." + b.dataset.quick));
 }
 
-// ---------- 입장 코드 ----------
-
-async function tryCode(code) {
-  accessCode = code.trim();
-  try {
-    await api("access", {});
-    localStorage.setItem("accessCode", accessCode);
-    await startSession();
-  } catch (err) {
-    // 401이면 api()가 코드를 지우고 입력 화면으로 보낸다. 그 밖의 오류는 연결 문제.
-    if (!accessCode) {
-      show("code");
-      toast(t("code.wrong"));
-    } else if (authToken) {
-      show("home");
-      toast(err.message);
-    } else {
-      show("login");
-    }
-  }
-}
-
-$("code-form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  if ($("code-input").value.trim()) tryCode($("code-input").value);
-});
-
 // ---------- 로그인 / 가입 ----------
 
-let signingUp = false;
+// 초대 링크로 처음 온 사람은 바로 가입 화면을 보여 준다
+let signingUp = Boolean(accessCode) && !authToken;
 
 function renderLoginMode() {
   $("login-lead").textContent = t(signingUp ? "login.leadSignup" : "login.lead");
   $("login-name").hidden = !signingUp;
   $("login-free").hidden = !signingUp;
+  // 링크에 코드가 있었으면 칸을 숨기고 자동으로 쓴다. 없거나 틀렸으면 직접 넣게 한다.
+  $("login-invite").hidden = !signingUp || Boolean(accessCode);
   $("login-pass").autocomplete = signingUp ? "new-password" : "current-password";
   $("login-submit").textContent = t(signingUp ? "login.submitSignup" : "login.submit");
   $("login-switch").textContent = t(signingUp ? "login.toLogin" : "login.toSignup");
@@ -600,6 +574,7 @@ $("login-form").addEventListener("submit", async (e) => {
     id: $("login-id").value.trim(),
     password: $("login-pass").value,
     name: $("login-name").value.trim(),
+    invite: $("login-invite").value.trim() || accessCode,
   };
   if (!body.id || !body.password || (signingUp && !body.name)) return toast(t("login.blank"));
   $("login-submit").disabled = true;
@@ -611,6 +586,13 @@ $("login-form").addEventListener("submit", async (e) => {
     await startSession();
   } catch (err) {
     toast(err.message);
+    if (/badInvite/.test(err.code)) {
+      // 기억해 둔 코드가 틀렸으면 지우고 칸을 보여 준다
+      accessCode = "";
+      localStorage.removeItem("accessCode");
+      renderLoginMode();
+      $("login-invite").focus();
+    }
   } finally {
     $("login-submit").disabled = false;
   }
@@ -702,10 +684,10 @@ $("btn-feedback-send").onclick = async () => {
   }
 };
 
-if (accessCode) {
-  if (authToken) show("home");
-  tryCode(accessCode);
-} else show("code");
+if (authToken) {
+  show("home");
+  startSession().catch((err) => toast(err.message));
+} else show("login");
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 

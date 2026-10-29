@@ -1,5 +1,5 @@
 // 마스터(관리자) 화면: 사용자 목록, 무료 횟수 주기, 계정 정지, 비밀번호 바꿔 주기, 의견, 막힌 개념 통계.
-import { checkAccess, onlyPost, sendError } from "./_lib.js";
+import { onlyPost, sendError } from "./_lib.js";
 import { requireAdmin, listUsers, updateUser, dailyUsed, DAILY_LIMIT } from "./_auth.js";
 import { readList, redis, today } from "./_db.js";
 
@@ -31,7 +31,7 @@ function groupBy(stats, field) {
 }
 
 export default async function handler(req, res) {
-  if (!onlyPost(req, res) || !checkAccess(req, res)) return;
+  if (!onlyPost(req, res)) return;
   if (!(await requireAdmin(req, res))) return;
   const { action, id, change } = req.body || {};
   try {

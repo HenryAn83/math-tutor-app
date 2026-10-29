@@ -1,6 +1,6 @@
 // 4단계: 다 푼 대화를 "풀이 과정 핵심"만 짧게 정리한다. 폰은 이 정리만 기록으로 남기고 대화는 지운다.
 // 서버에는 "어느 단원·개념에서 막혔는지"만 통계로 남긴다(대화 원문, 사진은 남기지 않음).
-import { askJSON, checkAccess, onlyPost, sendError, unseal, MOCK } from "./_lib.js";
+import { askJSON, onlyPost, sendError, unseal, MOCK } from "./_lib.js";
 import { requireUser } from "./_auth.js";
 import { redis, pushList } from "./_db.js";
 import { say } from "./_i18n.js";
@@ -77,7 +77,7 @@ async function recordStat(user, session, summary, hints) {
 }
 
 export default async function handler(req, res) {
-  if (!onlyPost(req, res) || !checkAccess(req, res)) return;
+  if (!onlyPost(req, res)) return;
   const user = await requireUser(req, res);
   if (!user) return;
   const { sealed, messages } = req.body || {};

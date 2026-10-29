@@ -15,17 +15,6 @@
 </head>
 <body>
   <main id="app">
-    <!-- 0. 입장 코드 -->
-    <section id="screen-code" class="screen" hidden>
-      <h1><span data-i18n="app.name">수학쌤</span> <span class="wave">🔒</span></h1>
-      <p class="lead" data-i18n-html="code.lead">입장 코드를 넣어 줘.<br />한 번만 넣으면 이 폰이 기억해.</p>
-      <form id="code-form" class="code-form">
-        <input id="code-input" class="card" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="입장 코드" data-i18n-ph="code.ph" />
-        <button class="btn primary big" type="submit" data-i18n="code.enter">들어가기</button>
-      </form>
-      <button class="btn link lang-btn" type="button" data-lang-toggle></button>
-    </section>
-
     <!-- 0-1. 로그인 / 가입 -->
     <section id="screen-login" class="screen" hidden>
       <h1><span data-i18n="app.name">수학쌤</span> <span class="wave">👋</span></h1>
@@ -34,6 +23,7 @@
         <input id="login-id" class="card" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="아이디 (영어 소문자, 숫자)" data-i18n-ph="login.idPh" />
         <input id="login-pass" class="card" type="password" autocomplete="current-password" placeholder="비밀번호 (4자 이상)" data-i18n-ph="login.passPh" />
         <input id="login-name" class="card" type="text" autocomplete="nickname" placeholder="이름 (선생님이 부를 이름)" data-i18n-ph="login.namePh" hidden />
+        <input id="login-invite" class="card" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="초대 코드 (받은 링크에 있어)" data-i18n-ph="login.invitePh" hidden />
         <button id="login-submit" class="btn primary big" type="submit">들어가기</button>
       </form>
       <button id="login-switch" class="btn link">처음이야? 가입하기</button>

@@ -1,7 +1,7 @@
 // 2단계: 대화 전에 문제를 서로 모르게 두 번 풀고 답을 비교한다.
 // 결과(정답 풀이)는 잠근 상태로 폰에 돌려준다. 서버에는 남기지 않는다.
 // 여기서 무료 문제 1회를 쓴다(선생님 쪽 오류로 실패하면 돌려준다).
-import { askJSON, checkAccess, onlyPost, sendError, seal, MOCK } from "./_lib.js";
+import { askJSON, onlyPost, sendError, seal, MOCK } from "./_lib.js";
 import { solveSystem, SOLVE_SCHEMA, COMPARE_SYSTEM, COMPARE_SCHEMA } from "./_prompts.js";
 import { langOf, say } from "./_i18n.js";
 import { requireUser, useCredit, refundCredit, countUse, creditsOf, noCredits, dailyFull } from "./_auth.js";
@@ -10,7 +10,7 @@ import crypto from "node:crypto";
 const MAX_PROBLEM = 4000;
 
 export default async function handler(req, res) {
-  if (!onlyPost(req, res) || !checkAccess(req, res)) return;
+  if (!onlyPost(req, res)) return;
   const problem = String(req.body?.problem || "").trim();
   // 화면에 다시 그린 그림이 있으면 그 안의 이름들(선생님이 ⟦선분 AB⟧로 짚을 수 있게)
   const figure = String(req.body?.figure || "").slice(0, 600);
