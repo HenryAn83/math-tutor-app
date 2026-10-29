@@ -14,19 +14,14 @@ function getClient() {
   return client;
 }
 
-// 비밀 링크(?k=코드)로 들어온 사람만 쓰게 한다. 코드가 설정 안 됐으면 아무도 못 쓴다.
-export function checkAccess(req, res) {
+// 가입할 때만 초대 코드(ACCESS_CODE, 링크의 ?k=)를 확인한다. 모르는 사람이 가입해서 하루 한도를 다 쓰지 않게.
+// 가입한 뒤에는 아이디·비밀번호로만 들어온다. 코드가 설정 안 됐으면 아무도 가입 못 한다.
+export function inviteOk(code) {
   const expected = process.env.ACCESS_CODE;
-  const given = req.headers["x-access-code"] || "";
-  const ok =
-    expected &&
-    given.length === expected.length &&
-    crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
-  if (!ok) {
-    res.status(401).json({ error: say(req, "badLink") });
-    return false;
-  }
-  return true;
+  const given = String(code || "").trim();
+  return Boolean(
+    expected && given.length === expected.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected)),
+  );
 }
 
 export function onlyPost(req, res) {

@@ -42,9 +42,9 @@ Vercel 대시보드 → 프로젝트 → Settings → Environment Variables 에 
 | 이름 | 값 |
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com 에서 만든 키 (`sk-ant-...`) |
-| `ACCESS_CODE` | 비밀 링크용 아무 긴 문자열 (예: `sun-river-2817-maple`) |
+| `ACCESS_CODE` | 가입할 때만 쓰는 초대 코드 (예: `sun-river-2817-maple`). 가입한 뒤에는 아이디·비밀번호로만 들어옴 |
 
-배포 후 공유 링크: `https://<프로젝트>.vercel.app/?k=<ACCESS_CODE>`
+초대 링크: `https://<프로젝트>.vercel.app/?k=<ACCESS_CODE>` (열면 바로 가입 화면, 코드는 자동 입력. 코드 없이 열면 로그인 화면이고, 가입할 때 초대 코드 칸이 나옴)
 한 번 열면 폰이 코드를 기억하므로, 그다음부터는 홈 화면 아이콘으로 열면 됩니다.
 
 계정 기능에 필요한 것:

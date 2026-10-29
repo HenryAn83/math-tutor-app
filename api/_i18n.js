@@ -11,7 +11,7 @@ export function langOf(req) {
 
 const MESSAGES = {
   ko: {
-    badLink: "이 링크로는 들어올 수 없어요. 받은 링크를 다시 열어 주세요.",
+    badInvite: "초대 코드가 맞지 않아. 받은 링크나 코드를 다시 확인해 줘.",
     busy: "선생님이 잠깐 바빠요. 10초 뒤에 다시 해 볼래?",
     network: "앗, 연결에 문제가 생겼어. 다시 한 번 해 볼래?",
     noDb: "저장소가 아직 연결되지 않았어요. Vercel Storage에서 Upstash를 연결해 주세요.",
@@ -37,7 +37,7 @@ const MESSAGES = {
     emptyFeedback: "한 줄이라도 적어 줄래?",
   },
   en: {
-    badLink: "This link doesn't work. Please open the link you were given again.",
+    badInvite: "That invite code doesn't match. Please check the link or code you were given.",
     busy: "Your coach is a little busy. Try again in 10 seconds?",
     network: "Oops, something went wrong with the connection. Try once more?",
     noDb: "Storage isn't connected yet. Connect Upstash in Vercel Storage.",

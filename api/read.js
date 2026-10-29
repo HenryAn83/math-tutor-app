@@ -1,5 +1,5 @@
 // 1단계: 사진을 글로 옮긴다. 사진은 Claude에게 보내기만 하고 저장하지 않는다.
-import { askJSON, checkAccess, onlyPost, sendError, MOCK } from "./_lib.js";
+import { askJSON, onlyPost, sendError, MOCK } from "./_lib.js";
 import { readSystem, READ_SCHEMA } from "./_prompts.js";
 import { langOf, say } from "./_i18n.js";
 import { requireUser, creditsOf, noCredits } from "./_auth.js";
@@ -8,7 +8,7 @@ const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_BASE64 = 4_000_000; // Vercel 요청 한도(4.5MB) 아래
 
 export default async function handler(req, res) {
-  if (!onlyPost(req, res) || !checkAccess(req, res)) return;
+  if (!onlyPost(req, res)) return;
   const user = await requireUser(req, res);
   if (!user) return;
   // 사진 읽기는 차감하지 않지만, 남은 문제가 없으면 미리 막는다.
