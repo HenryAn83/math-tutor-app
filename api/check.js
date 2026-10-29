@@ -1,7 +1,10 @@
 // 2단계: 대화 전에 문제를 서로 모르게 두 번 풀고 답을 비교한다.
 // 결과(정답 풀이)는 잠근 상태로 폰에 돌려준다. 서버에는 남기지 않는다.
+// 여기서 무료 문제 1회를 쓴다(선생님 쪽 오류로 실패하면 돌려준다).
 import { askJSON, checkAccess, onlyPost, sendError, seal, MOCK } from "./_lib.js";
 import { SOLVE_SYSTEM, SOLVE_SCHEMA, COMPARE_SYSTEM, COMPARE_SCHEMA } from "./_prompts.js";
+import { requireUser, useCredit, refundCredit, countUse, creditsOf, noCredits } from "./_auth.js";
+import crypto from "node:crypto";
 
 const MAX_PROBLEM = 4000;
 
@@ -11,6 +14,9 @@ export default async function handler(req, res) {
   if (!problem || problem.length > MAX_PROBLEM) {
     return res.status(400).json({ error: "문제 내용을 다시 확인해 줄래?" });
   }
+  const user = await requireUser(req, res);
+  if (!user) return;
+  if (!(await useCredit(user))) return noCredits(res);
   try {
     let check;
     if (MOCK) {
@@ -44,8 +50,11 @@ export default async function handler(req, res) {
       check = { agree, solutions };
     }
     // 아이 화면에는 "확인됨/확인 필요"만 알려 준다.
-    res.json({ agree: check.agree, sealed: seal({ problem, check }) });
+    await countUse(user);
+    const pid = crypto.randomBytes(8).toString("hex"); // 통계를 한 문제에 한 번만 남기려고
+    res.json({ agree: check.agree, sealed: seal({ problem, check, user: user.id, pid }), credits: await creditsOf(user) });
   } catch (err) {
+    await refundCredit(user).catch(() => {});
     sendError(res, err);
   }
 }

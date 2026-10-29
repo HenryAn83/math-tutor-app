@@ -113,3 +113,17 @@ textarea.card { resize: vertical; }
 #btn-sound[aria-pressed="true"] { background: var(--ok); }
 .bubble .replay { display: block; margin-top: 6px; padding: 2px 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
 .bubble .replay.playing { color: var(--me); font-weight: 600; }
+
+/* 계정, 의견, 관리 */
+.me-row { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 15px; }
+.me-row .badge { margin: 0; }
+.badge.none { background: var(--warn); color: var(--warn-text); }
+#screen-feedback .btn[aria-pressed="true"] { background: var(--ok); color: var(--ok-text); border-color: var(--ok-text); }
+#screen-admin summary { cursor: pointer; font-weight: 600; }
+.admin-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; font-size: 15px; }
+.admin-item { border-top: 1px solid var(--line); padding-top: 10px; }
+.admin-item:first-child { border-top: 0; padding-top: 0; }
+.admin-item .title { font-weight: 600; }
+.admin-item .row { flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.admin-item .row .btn { flex: none; }
+.admin-item .off { color: var(--muted); text-decoration: line-through; }

@@ -4,7 +4,8 @@
 import { canListen, canSpeak, toggleListening, speak, stopSpeaking, unlockSpeech } from "./voice.js";
 
 const $ = (id) => document.getElementById(id);
-import { newId, saveItem, listItems, getItem, deleteItem, formatDate, summarizing } from "./history.js";
+import { newId, saveItem, listItems, getItem, deleteItem, formatDate, summarizing, useHistoryOf } from "./history.js";
+import { openAdmin } from "./admin.js";
 
 // 비밀 링크(?k=코드)의 코드를 기억하고 주소창에서는 지운다.
 const params = new URLSearchParams(location.search);
@@ -13,6 +14,8 @@ if (params.get("k")) {
   history.replaceState(null, "", location.pathname);
 }
 let accessCode = localStorage.getItem("accessCode") || "";
+let authToken = localStorage.getItem("authToken") || "";
+let me = null; // { id, name, admin, credits(null이면 무제한) }
 
 const state = {
   candidates: [], // 사진에서 읽은 문제들
@@ -25,13 +28,13 @@ const state = {
   agree: true,
 };
 
-function show(name) {
+export function show(name) {
   for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== `screen-${name}`;
   if (name === "home") renderHistoryButton();
   window.scrollTo(0, 0);
 }
 
-function toast(text) {
+export function toast(text) {
   const t = $("toast");
   t.textContent = text;
   t.hidden = false;
@@ -45,18 +48,25 @@ function wait(text, sub = "") {
   show("wait");
 }
 
-async function api(path, body) {
+export async function api(path, body) {
   const res = await fetch(`/api/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-access-code": accessCode },
+    headers: { "Content-Type": "application/json", "x-access-code": accessCode, Authorization: `Bearer ${authToken}` },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) {
+  if (res.status === 401 && data.login) {
+    // 로그인이 풀렸으면 다시 로그인하게 한다
+    logout();
+  } else if (res.status === 401) {
     // 코드가 바뀌었거나 틀리면 다시 입력하게 한다
     localStorage.removeItem("accessCode");
     accessCode = "";
     show("code");
+  }
+  if (res.status === 402 && me) {
+    me.credits = 0;
+    renderMe();
   }
   if (!res.ok) throw new Error(data.error || "앗, 연결에 문제가 생겼어. 다시 해 볼래?");
   return data;
@@ -160,6 +170,10 @@ async function confirmProblem() {
   try {
     const result = await api("check", { problem: state.problem });
     state.sealed = result.sealed;
+    if (me && result.credits !== undefined) {
+      me.credits = result.credits;
+      renderMe();
+    }
     state.messages = [];
     state.id = newId();
     state.createdAt = Date.now();
@@ -353,15 +367,17 @@ async function tryCode(code) {
   try {
     await api("access", {});
     localStorage.setItem("accessCode", accessCode);
-    show("home");
+    await startSession();
   } catch (err) {
     // 401이면 api()가 코드를 지우고 입력 화면으로 보낸다. 그 밖의 오류는 연결 문제.
     if (!accessCode) {
       show("code");
       toast("코드가 맞지 않아. 다시 확인해 줄래?");
-    } else {
+    } else if (authToken) {
       show("home");
       toast(err.message);
+    } else {
+      show("login");
     }
   }
 }
@@ -371,8 +387,128 @@ $("code-form").addEventListener("submit", (e) => {
   if ($("code-input").value.trim()) tryCode($("code-input").value);
 });
 
-if (accessCode) {
+// ---------- 로그인 / 가입 ----------
+
+let signingUp = false;
+
+function renderLoginMode() {
+  $("login-lead").textContent = signingUp ? "처음 왔구나! 아이디를 만들어 줘." : "아이디로 들어와 줘.";
+  $("login-name").hidden = !signingUp;
+  $("login-free").hidden = !signingUp;
+  $("login-pass").autocomplete = signingUp ? "new-password" : "current-password";
+  $("login-submit").textContent = signingUp ? "가입하고 시작" : "들어가기";
+  $("login-switch").textContent = signingUp ? "이미 아이디가 있어? 로그인" : "처음이야? 가입하기";
+}
+
+$("login-switch").onclick = () => {
+  signingUp = !signingUp;
+  renderLoginMode();
+};
+
+$("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = {
+    action: signingUp ? "signup" : "login",
+    id: $("login-id").value.trim(),
+    password: $("login-pass").value,
+    name: $("login-name").value.trim(),
+  };
+  if (!body.id || !body.password || (signingUp && !body.name)) return toast("빈칸을 다 채워 줘!");
+  $("login-submit").disabled = true;
+  try {
+    const { token } = await api("auth", body);
+    authToken = token;
+    localStorage.setItem("authToken", token);
+    $("login-pass").value = "";
+    await startSession();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    $("login-submit").disabled = false;
+  }
+});
+
+// 로그인 표가 있으면 내 정보를 받아 시작 화면으로, 없으면 로그인 화면으로.
+async function startSession() {
+  if (!authToken) return show("login");
+  const info = await api("auth", { action: "me" });
+  me = info;
+  useHistoryOf(me.id);
+  $("btn-admin").hidden = !me.admin;
+  renderMe();
   show("home");
+}
+
+function renderMe() {
+  if (!me) return;
+  $("me-name").textContent = `${me.name}`;
+  const badge = $("me-credits");
+  if (me.credits === null) {
+    badge.textContent = "무제한";
+    badge.className = "badge ok";
+  } else {
+    badge.textContent = `남은 무료 문제 ${me.credits}개`;
+    badge.className = "badge " + (me.credits > 0 ? "ok" : "none");
+  }
+}
+
+function logout() {
+  authToken = "";
+  me = null;
+  localStorage.removeItem("authToken");
+  signingUp = false;
+  renderLoginMode();
+  show("login");
+}
+
+$("btn-logout").onclick = () => {
+  if (confirm("로그아웃할까?")) logout();
+};
+$("btn-admin").onclick = openAdmin;
+
+// ---------- 의견 보내기 ----------
+
+let feedbackAbout = "";
+let feedbackRating = "";
+
+function openFeedback(about = "") {
+  feedbackAbout = about;
+  feedbackRating = "";
+  $("feedback-about").textContent = about ? `문제: ${about}` : "";
+  $("feedback-about").hidden = !about;
+  $("feedback-text").value = "";
+  for (const b of document.querySelectorAll("[data-rating]")) b.setAttribute("aria-pressed", "false");
+  show("feedback");
+}
+
+for (const b of document.querySelectorAll("[data-rating]")) {
+  b.onclick = () => {
+    feedbackRating = feedbackRating === b.dataset.rating ? "" : b.dataset.rating;
+    for (const x of document.querySelectorAll("[data-rating]")) {
+      x.setAttribute("aria-pressed", String(x.dataset.rating === feedbackRating));
+    }
+  };
+}
+
+$("btn-feedback").onclick = () => openFeedback();
+$("btn-feedback-back").onclick = () => show("home");
+$("btn-feedback-send").onclick = async () => {
+  const text = $("feedback-text").value.trim();
+  if (!text && !feedbackRating) return toast("한 줄이라도 적어 줄래?");
+  $("btn-feedback-send").disabled = true;
+  try {
+    await api("feedback", { rating: feedbackRating, text, about: feedbackAbout });
+    toast("고마워! 잘 받았어 😊");
+    show("home");
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    $("btn-feedback-send").disabled = false;
+  }
+};
+
+if (accessCode) {
+  if (authToken) show("home");
   tryCode(accessCode);
 } else show("code");
 
@@ -476,9 +612,12 @@ function renderHistory() {
   show("history");
 }
 
+let noteTitle = "";
+
 function showNote(item) {
   const s = item.summary;
   $("note-title").textContent = s.title;
+  noteTitle = s.title;
   $("note-date").textContent = formatDate(item.createdAt);
   $("note-problem").textContent = item.problem;
   const steps = $("note-steps");
@@ -498,3 +637,4 @@ function showNote(item) {
 $("btn-history").onclick = renderHistory;
 $("btn-history-back").onclick = () => show("home");
 $("btn-note-back").onclick = renderHistory;
+$("btn-note-feedback").onclick = () => openFeedback(noteTitle);

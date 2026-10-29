@@ -1,16 +1,20 @@
 // 3단계: 소크라테스식 대화. 대화 기록은 폰에만 있고 매번 같이 보내온다.
 import { askText, checkAccess, onlyPost, sendError, unseal, MOCK } from "./_lib.js";
 import { tutorSystem } from "./_prompts.js";
+import { requireUser } from "./_auth.js";
 
 const MAX_TURNS = 60;
 const MAX_MESSAGE = 2000;
 
 export default async function handler(req, res) {
   if (!onlyPost(req, res) || !checkAccess(req, res)) return;
+  const user = await requireUser(req, res);
+  if (!user) return;
   const { sealed, messages } = req.body || {};
   let session;
   try {
     session = unseal(sealed);
+    if (session.user !== user.id) throw new Error("other user");
   } catch {
     return res.status(400).json({ error: "문제를 처음부터 다시 올려 줄래?" });
   }

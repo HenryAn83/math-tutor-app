@@ -37,6 +37,7 @@ export function onlyPost(req, res) {
 
 // 사진, 대화 내용은 어디에도 저장하지 않는다. 오류도 종류만 남긴다.
 export function sendError(res, err) {
+  if (err?.userFacing) return res.status(400).json({ error: err.message });
   console.error("api error:", err?.status || "", err?.name || "", err?.error?.error?.type || "");
   const busy = err?.status === 429 || err?.status === 529;
   res.status(500).json({

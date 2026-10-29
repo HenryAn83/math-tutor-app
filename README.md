@@ -22,8 +22,14 @@
 - `api/chat.js` 대화
 - `api/_prompts.js` **AI 선생님 지침** — 테스트 피드백은 주로 여기를 고칩니다
 - `api/_lib.js` 공통 도구 (접근 코드 확인, Claude 호출, 정답 잠금)
+- `api/auth.js` 가입·로그인 (아이디, 비밀번호, 이름만), `api/_auth.js` 로그인 표·무료 횟수
+- `api/feedback.js` 의견 보내기, `api/admin.js` 관리 화면(사용자, 횟수 주기, 통계, 의견)
+- `api/_db.js` 저장소 (Upstash Redis). 연결 정보가 없으면 메모리에만 담음(내 컴퓨터 테스트용)
 
-개인정보: 로그인 없음, 사진과 대화는 어디에도 저장하지 않음(폰 화면에만 있고 새로고침하면 사라짐).
+무료 문제: 가입하면 5개(`FREE_CREDITS`로 변경). "맞아, 시작!"을 누를 때 1개 차감, 선생님 쪽 오류면 돌려줌.
+통계: 문제를 마치면 단원·개념·막힌 지점·힌트 횟수만 서버에 남김(사진, 대화 원문은 남기지 않음).
+
+개인정보: 아이디·이름·남은 횟수·의견·막힌 개념 통계만 서버에 저장. 사진과 대화 원문은 서버에 저장하지 않음(풀이 노트는 폰에만).
 미리 풀어 둔 정답은 서버만 열 수 있게 잠가서 폰에 들고 있게 합니다.
 
 ## Vercel에 올리기
@@ -37,6 +43,11 @@ Vercel 대시보드 → 프로젝트 → Settings → Environment Variables 에 
 
 배포 후 공유 링크: `https://<프로젝트>.vercel.app/?k=<ACCESS_CODE>`
 한 번 열면 폰이 코드를 기억하므로, 그다음부터는 홈 화면 아이콘으로 열면 됩니다.
+
+계정 기능에 필요한 것:
+- Vercel 프로젝트 → **Storage** → **Upstash for Redis**(무료) 만들고 이 프로젝트에 연결 → `KV_REST_API_URL`, `KV_REST_API_TOKEN`이 자동으로 들어감
+- `MASTER_ID`, `MASTER_PASSWORD` — 관리자(마스터) 로그인. 이 아이디는 일반 가입에 쓸 수 없음
+- `SECRET_SEED` — 로그인 표 서명용 긴 비밀값 (꼭 넣기 권장)
 
 선택: `CLAUDE_MODEL` (기본 `claude-sonnet-5-5`, 더 정확하게 하려면 `claude-opus-5-5`), `SECRET_SEED` (정답 잠금용 별도 비밀값).
 
