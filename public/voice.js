@@ -54,8 +54,8 @@ const LETTERS = {
 export function mathToSpeech(text) {
   return (
     text
-      // 이모지 빼기
-      .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, "")
+      // 이모지, 그림 짚기 표시(⟦ ⟧) 빼기
+      .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}⟦⟧]/gu, "")
       // 분수 a/b → b분의 a
       .replace(/(\(?[\w.²³]+\)?)\s*\/\s*(\(?[\w.²³]+\)?)/g, "$2분의 $1")
       // x^2 처럼 쓴 거듭제곱
@@ -120,25 +120,51 @@ function splitSentences(text) {
 
 let current = null; // 지금 읽는 중인 것 { onEnd }
 
-// text를 읽는다. 다 읽거나 멈추면 onEnd()를 한 번 부른다.
-export function speak(text, { onEnd } = {}) {
+// 핵심설명은 조금 천천히, 조금 높게 읽고 앞에 "핵심 설명!"을 붙인다.
+// 브라우저 기본 음성은 감정 어투를 못 바꾸고 속도와 높낮이만 바꿀 수 있다.
+const NORMAL = { rate: 1.0, pitch: 1.0 };
+const EMPHASIS = { rate: 0.9, pitch: 1.15 };
+const TITLE = { rate: 0.95, pitch: 1.25 };
+
+// text(글 하나, 또는 [{ text, emphasis }] 목록)를 읽는다. 다 읽거나 멈추면 onEnd()를 한 번 부른다.
+// onPart(원래 문장)는 문장마다 읽기 시작할 때 불린다(그림 깜빡임을 말과 맞추려고).
+export function speak(text, { onEnd, onPart } = {}) {
   if (!canSpeak) return;
   stopSpeaking();
-  const parts = splitSentences(mathToSpeech(text));
+  const segments = typeof text === "string" ? [{ text }] : text;
+  const parts = [];
+  for (const seg of segments) {
+    if (seg.emphasis) parts.push({ spoken: "핵심 설명!", raw: "", voice: TITLE, pause: true });
+    for (const raw of splitSentences(seg.text)) {
+      const spoken = mathToSpeech(raw);
+      if (spoken) parts.push({ spoken, raw, voice: seg.emphasis ? EMPHASIS : NORMAL });
+    }
+  }
   if (!parts.length) return onEnd?.();
   const me = { onEnd };
   current = me;
   parts.forEach((part, i) => {
-    const u = new SpeechSynthesisUtterance(part);
+    const u = new SpeechSynthesisUtterance(part.spoken);
     u.lang = "ko-KR";
     if (koVoice) u.voice = koVoice;
-    u.rate = 1.0;
+    u.rate = part.voice.rate;
+    u.pitch = part.voice.pitch;
+    u.onstart = () => {
+      if (current === me) onPart?.(part.raw);
+    };
     if (i === parts.length - 1) {
       u.onend = u.onerror = () => {
         if (current === me) finish();
       };
     }
     speechSynthesis.speak(u);
+    // 제목 뒤에 잠깐 쉬기(소리 없는 짧은 말)
+    if (part.pause) {
+      const gap = new SpeechSynthesisUtterance(" ");
+      gap.volume = 0;
+      gap.lang = "ko-KR";
+      speechSynthesis.speak(gap);
+    }
   });
 }
 

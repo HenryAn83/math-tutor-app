@@ -85,6 +85,11 @@
       <div id="choice-list" class="choices" hidden></div>
       <div id="problem-view" class="card problem"></div>
       <p id="unclear-note" class="note" hidden></p>
+      <div id="figure-confirm" class="card figure-box" hidden>
+        <div id="figure-confirm-svg"></div>
+        <p class="sub">그림도 이렇게 읽었어. 선생님이 설명할 때 이 그림에 빨갛게 표시해 줄게.</p>
+        <button id="btn-figure-off" class="btn small">그림이 많이 달라 (그림 빼기)</button>
+      </div>
       <textarea id="problem-edit" class="card" rows="7" hidden placeholder="문제를 그대로 적어 줘. 그림이 있으면 그림 내용도 (예: 각 B = 90°, AB = 6cm)"></textarea>
       <div class="row">
         <button id="btn-yes" class="btn primary">맞아, 시작!</button>
@@ -103,6 +108,10 @@
         <button id="btn-sound" class="btn small" hidden aria-pressed="false" title="선생님 말 읽어 주기">🔇</button>
         <button id="btn-new" class="btn small">새 문제</button>
       </header>
+      <div id="chat-figure" class="chat-figure" hidden>
+        <div id="chat-figure-svg"></div>
+        <button id="btn-figure-toggle" class="btn link" type="button">그림 접기 ▲</button>
+      </div>
       <div id="messages" class="messages" aria-live="polite"></div>
       <div class="quick">
         <button data-quick="힌트 좀 줘">💡 힌트</button>

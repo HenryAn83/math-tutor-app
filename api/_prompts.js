@@ -13,7 +13,80 @@ export const READ_SYSTEM = `너는 한국 중학생이 찍어 올린 수학 문�
 - 수학 문제가 아니거나 너무 흐려서 읽을 수 없으면 problems를 비우고, photo_tip에 다시 찍는 요령을 중학생에게 말하듯 한 문장으로 적는다. 읽을 수 있으면 photo_tip은 빈 문자열.
 - 사진에 이름, 학교, 얼굴 같은 개인 정보가 있어도 옮기지 않는다.
 
+[figure - 그림 다시 그리기]
+학생 화면에 그림을 깨끗하게 다시 그려 보여 주고, 선생님이 "선분 AB"를 말하면 그 부분을 빨갛게 깜빡이는 데 쓴다.
+- 평면도형이면 kind "geometry", 좌표평면의 그래프/점이면 kind "graph", 그림이 없거나 입체도형·복잡한 그림이라 점과 선으로 옮기기 어려우면 kind "none"(나머지는 빈 배열).
+- points: 그림의 모든 이름 붙은 점(A, B, C, O, P …)과 꼭짓점, 교점. 이름이 없는 중요한 점은 좌표를 이름으로 쓴다(예: "(2, 3)"). label은 그림에 이름을 쓸지.
+- geometry 좌표: 0~10 범위, 위쪽이 y가 큰 쪽. 사진 속 모양(어느 점이 위/왼쪽인지, 대략의 비율)을 그대로 따른다. 길이나 각도가 주어지면 그 비율에 가깝게 놓는다.
+- segments: 그림에 그어진 선분(from, to는 점 이름). text는 그림에 적힌 길이(예: "6cm", "x"), 없으면 빈 문자열. 점선이면 dashed true.
+- angles: 그림에 표시된 각(vertex가 꼭짓점). text는 적힌 각도(예: "50°"), 직각 표시면 right true.
+- circles: 원(center는 점 이름, radius는 같은 좌표 단위).
+- graph: axes에 보여 줄 x, y 범위(그림과 비슷하게, 중요한 점이 다 들어가게). curves는 그래프 식. expr은 x에 대한 식으로 곱하기를 * 로 쓴다(예: "2*x+1", "-0.5*x^2+3", "6/x"). name은 학생이 부르는 이름(예: "y=2x+1"). x_from, x_to는 그래프가 그려진 x 범위(전체면 axes 범위).
+- geometry일 때 axes와 curves는 비우거나 0으로 둔다.
+- 확실하지 않은 그림을 지어내지 않는다. 자신 없으면 kind "none".
+
 ${MATH_TEXT_RULES}`;
+
+const NAMED = { type: "string" };
+const FIGURE_SCHEMA = {
+  type: "object",
+  properties: {
+    kind: { type: "string", enum: ["none", "geometry", "graph"] },
+    points: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { name: NAMED, x: { type: "number" }, y: { type: "number" }, label: { type: "boolean" } },
+        required: ["name", "x", "y", "label"],
+        additionalProperties: false,
+      },
+    },
+    segments: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { from: NAMED, to: NAMED, text: NAMED, dashed: { type: "boolean" } },
+        required: ["from", "to", "text", "dashed"],
+        additionalProperties: false,
+      },
+    },
+    angles: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { vertex: NAMED, from: NAMED, to: NAMED, text: NAMED, right: { type: "boolean" } },
+        required: ["vertex", "from", "to", "text", "right"],
+        additionalProperties: false,
+      },
+    },
+    circles: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { center: NAMED, radius: { type: "number" } },
+        required: ["center", "radius"],
+        additionalProperties: false,
+      },
+    },
+    axes: {
+      type: "object",
+      properties: { x_min: { type: "number" }, x_max: { type: "number" }, y_min: { type: "number" }, y_max: { type: "number" } },
+      required: ["x_min", "x_max", "y_min", "y_max"],
+      additionalProperties: false,
+    },
+    curves: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { name: NAMED, expr: NAMED, x_from: { type: "number" }, x_to: { type: "number" } },
+        required: ["name", "expr", "x_from", "x_to"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["kind", "points", "segments", "angles", "circles", "axes", "curves"],
+  additionalProperties: false,
+};
 
 export const READ_SCHEMA = {
   type: "object",
@@ -26,8 +99,9 @@ export const READ_SCHEMA = {
           text: { type: "string" },
           diagram: { type: "string" },
           unclear_parts: { type: "string" },
+          figure: FIGURE_SCHEMA,
         },
-        required: ["text", "diagram", "unclear_parts"],
+        required: ["text", "diagram", "unclear_parts", "figure"],
         additionalProperties: false,
       },
     },
@@ -71,7 +145,7 @@ export const COMPARE_SCHEMA = {
   additionalProperties: false,
 };
 
-export function tutorSystem({ problem, check }) {
+export function tutorSystem({ problem, check, figure = "" }) {
   const reference = check.agree
     ? `[선생님만 아는 정답 풀이 - 두 번 따로 풀어서 답이 일치함]
 최종 답: ${check.solutions[0].final_answer}
@@ -134,6 +208,20 @@ ${reference}
 - "비슷한 문제 하나 내 볼게!" 와 함께 숫자나 조건을 바꾼 비슷한 문제 하나 (교재 문제를 그대로 베끼지 말고 직접 만든다)
 - 비슷한 문제는 학생이 먼저 혼자 풀어 보게 한다. 질문은 거의 하지 말고, 답과 과정을 보고 맞으면 칭찬하며 끝내고, 틀린 곳만 짧게 짚는다. 핵심을 제대로 썼는지만 확인한다.
 
+[핵심설명 - 빨간 제목으로 보이고, 소리도 강조해서 읽힌다]
+- 이 문제의 핵심(⭐에서 다룬 개념이나 아이디어)을 선생님이 직접 설명하는 메시지에서는, 그 설명을 새 줄에서 "[핵심설명]"으로 시작한다. 예:
+  "잘했어!
+  [핵심설명] 삼각형 세 각을 더하면 언제나 180°야. 그래서 모르는 각은 180°에서 나머지 두 각을 빼면 돼."
+- 학생이 ⭐ 핵심 질문에 답한 뒤 짚어 주는 한 문장, "모르겠어" 해서 핵심을 설명해 줄 때가 여기에 해당한다. 곁가지 설명에는 쓰지 않는다(한 문제에 한두 번).
+- [핵심설명] 내용은 2~3문장으로 짧고 또렷하게. 그 줄에서는 질문하지 않는다. 질문이 필요하면 빈 줄을 두고 다음 줄에 쓴다.
+- 마무리의 "오늘 배운 핵심:" 줄은 그대로 쓴다(앱이 알아서 핵심설명으로 보여 준다).
+${figure ? `
+[그림 짚어 주기 - 학생 화면 위쪽에 문제 그림이 있다]
+그림에 있는 이름: ${figure}
+- 그림의 어떤 부분을 말할 때는 ⟦ ⟧로 감싼다. 그러면 학생 화면에서 그 부분이 빨갛게 깜빡여서 바로 찾을 수 있다.
+  예: "⟦선분 AB⟧의 길이를 보자", "⟦∠ABC⟧는 몇 도일까?", "⟦△ABC⟧와 ⟦△DEF⟧를 비교해 봐", "⟦점 P⟧의 좌표는?", "⟦y=2x+1⟧이 ⟦y축⟧과 만나는 점"
+- 위 목록에 있는 점 이름으로만 쓴다. 한 메시지에 ⟦ ⟧는 1~3개 정도만, 처음 가리킬 때만 쓴다.
+` : ""}
 [학생이 말로 답할 때]
 - 학생은 음성 입력을 쓸 수 있다. 그래서 "삼 엑스 빼기 육", "x 제곱", "이분의 일"처럼 수식이 말로 적혀 오거나, 소리가 비슷한 다른 단어로 잘못 적혀 올 수 있다.
 - 뜻이 분명하면 수식으로 이해하고 넘어간다. 애매하면 "3x - 6 이라고 한 거 맞지?"처럼 수식으로 바꿔서 짧게 확인한다. 잘못 적힌 걸 학생 실수로 취급하지 않는다.
