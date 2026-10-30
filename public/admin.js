@@ -117,6 +117,13 @@ function renderMoney(data) {
     el("div", "", `오늘 비용: ${usd(data.today.cost)}`),
     el("div", "", `이번 달 비용: ${usd(data.month.cost)} / 한도 $${MONTHLY_BUDGET}${monthWarn}`),
     el("div", "sub", "실제로 쓴 토큰으로 계산한 값이에요. 정확한 청구액은 Anthropic 콘솔에서 확인하세요."),
+    el(
+      "div",
+      "",
+      data.month.ttsOn
+        ? `이번 달 Google 목소리: ${data.month.ttsChars.toLocaleString()} / ${data.month.ttsLimit.toLocaleString()}글자 (넘으면 폰 목소리로, 0원)`
+        : "Google 목소리: 꺼짐 (폰 목소리 사용)",
+    ),
   );
 }
 

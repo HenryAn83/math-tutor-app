@@ -2,6 +2,7 @@
 import { onlyPost, sendError } from "./_lib.js";
 import { requireAdmin, listUsers, updateUser, dailyUsed, DAILY_LIMIT } from "./_auth.js";
 import { readList, redis, today } from "./_db.js";
+import { ttsKey, TTS_LIMIT, TTS_ON } from "./tts.js";
 
 const dollars = (micro) => Number(micro || 0) / 1e6;
 
@@ -40,18 +41,19 @@ export default async function handler(req, res) {
       return res.json({ ok: true });
     }
     const day = today();
-    const [users, feedback, stats, used, costDay, costMonth] = await Promise.all([
+    const [users, feedback, stats, used, costDay, costMonth, ttsChars] = await Promise.all([
       listUsers(),
       readList("feedback", 1000),
       readList("stats", 5000),
       dailyUsed(),
       redis("GET", `cost:day:${day}`),
       redis("GET", `cost:month:${day.slice(0, 7)}`),
+      redis("GET", ttsKey(day)),
     ]);
     res.json({
       users,
       today: { used, limit: DAILY_LIMIT, cost: dollars(costDay) },
-      month: { cost: dollars(costMonth) },
+      month: { cost: dollars(costMonth), ttsChars: Number(ttsChars || 0), ttsLimit: TTS_LIMIT, ttsOn: TTS_ON },
       quick: { difficulty: countChoices(feedback, "difficulty"), questions: countChoices(feedback, "questions") },
       feedback: feedback.slice(0, 200),
       stats: {
