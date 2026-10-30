@@ -201,11 +201,104 @@ if (canSpeak) {
   speechSynthesis.addEventListener?.("voiceschanged", pickVoice);
 }
 
+// ---------- Google 목소리 (서버에 GOOGLE_TTS_KEY 가 있을 때만) ----------
+// 문장마다 서버(/api/tts)에서 mp3를 받아 재생한다. 안 되면(키 없음, 한도 다 씀, 인터넷 문제) 폰 목소리로 읽는다.
+
+const CLOUD_VOICES = ["Aoede", "Kore", "Leda", "Zephyr", "Puck", "Charon", "Fenrir", "Orus"]; // 앞 넷 여자, 뒤 넷 남자
+const CLOUD_KEY = "cloudVoice";
+let cloudOff = false; // 서버가 "폰 목소리로 해"라고 하면 이 화면에선 다시 묻지 않는다
+let cloudWorks = false; // 한 번이라도 Google 목소리가 나왔는지
+let cloudVoice = CLOUD_VOICES[0];
+try {
+  if (CLOUD_VOICES.includes(localStorage.getItem(CLOUD_KEY))) cloudVoice = localStorage.getItem(CLOUD_KEY);
+} catch {}
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let ctx = null;
+const cache = new Map(); // 같은 문장은 다시 받지 않는다(다시 듣기는 0원)
+
+function authToken() {
+  try {
+    return localStorage.getItem("authToken");
+  } catch {
+    return null;
+  }
+}
+
+function useCloud() {
+  return !cloudOff && !!AudioCtx && !!authToken();
+}
+
+function fetchAudio(text) {
+  const key = `${cloudVoice}|${text}`;
+  if (!cache.has(key)) {
+    const job = fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken()}` },
+      body: JSON.stringify({ text, lang, voice: cloudVoice }),
+    })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d) => {
+        if (d.fallback) cloudOff = true;
+        if (!d.audio) return null;
+        const bytes = Uint8Array.from(atob(d.audio), (c) => c.charCodeAt(0));
+        return ctx.decodeAudioData(bytes.buffer);
+      })
+      .catch(() => null);
+    job.then((b) => {
+      if (b) cloudWorks = true;
+      else cache.delete(key);
+    });
+    cache.set(key, job);
+    if (cache.size > 80) cache.delete(cache.keys().next().value);
+  }
+  return cache.get(key);
+}
+
+function playBuffer(buf, me) {
+  return new Promise((resolve) => {
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.onended = resolve;
+    me.source = src;
+    src.start();
+  });
+}
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function speakCloud(parts, me, onPart) {
+  ctx ||= new AudioCtx();
+  if (ctx.state !== "running") await ctx.resume().catch(() => {});
+  // 소리가 아직 잠겨 있으면(아이폰에서 버튼을 안 누른 경우) 폰 목소리로
+  if (ctx.state !== "running") return speakBrowser(parts, me, onPart);
+  const jobs = parts.map((p) => fetchAudio(p.spoken)); // 모든 문장을 한꺼번에 미리 받아 둔다
+  for (let i = 0; i < parts.length; i++) {
+    const buf = await jobs[i];
+    if (current !== me) return;
+    if (!buf) return speakBrowser(parts.slice(i), me, onPart);
+    onPart?.(parts[i].raw);
+    await playBuffer(buf, me);
+    if (current !== me) return;
+    if (parts[i].pause) await wait(300);
+    if (current !== me) return;
+  }
+  finish();
+}
+
 // 🗣 버튼: 다음 목소리로 바꾸고 이름을 돌려준다(맘에 드는 목소리를 아이가 고를 수 있게).
 export function voiceCount() {
-  return ranked.length;
+  return cloudWorks && !cloudOff ? CLOUD_VOICES.length : ranked.length;
 }
 export function nextVoice() {
+  if (cloudWorks && !cloudOff) {
+    const i = CLOUD_VOICES.indexOf(cloudVoice);
+    cloudVoice = CLOUD_VOICES[(i + 1) % CLOUD_VOICES.length];
+    try {
+      localStorage.setItem(CLOUD_KEY, cloudVoice);
+    } catch {}
+    return cloudVoice;
+  }
   if (!ranked.length) pickVoice();
   if (!ranked.length) return null;
   const i = ranked.indexOf(voice);
@@ -224,7 +317,7 @@ function splitSentences(text) {
     .filter(Boolean);
 }
 
-let current = null; // 지금 읽는 중인 것 { onEnd }
+let current = null; // 지금 읽는 중인 것 { onEnd, source }
 
 // 핵심설명은 조금 천천히, 조금 높게 읽고 앞에 "핵심 설명!"을 붙인다.
 // 브라우저 기본 음성은 감정 어투를 못 바꾸고 속도와 높낮이만 바꿀 수 있다.
@@ -250,6 +343,11 @@ export function speak(text, { onEnd, onPart } = {}) {
   if (!parts.length) return onEnd?.();
   const me = { onEnd };
   current = me;
+  if (useCloud()) speakCloud(parts, me, onPart);
+  else speakBrowser(parts, me, onPart);
+}
+
+function speakBrowser(parts, me, onPart) {
   parts.forEach((part, i) => {
     const u = new SpeechSynthesisUtterance(part.spoken);
     u.lang = SPEECH_LANG;
@@ -284,13 +382,24 @@ function finish() {
 export function stopSpeaking() {
   if (!canSpeak) return;
   speechSynthesis.cancel();
+  try {
+    current?.source?.stop();
+  } catch {}
   finish();
 }
 
-// 아이폰은 사람이 버튼을 누른 순간에 한 번 말해야 그 뒤 자동 읽기가 된다.
-// 보내기/시작 버튼을 누를 때 소리 없는 짧은 말을 한 번 해 둔다.
+// 아이폰은 사람이 버튼을 누른 순간에 한 번 소리를 내야 그 뒤 자동 읽기가 된다.
+// 보내기/시작 버튼을 누를 때 소리 없는 짧은 말을 한 번 해 두고, Google 목소리용 소리 장치도 연다.
 let unlocked = false;
 export function unlockSpeech() {
+  if (AudioCtx) {
+    try {
+      // 아이폰 무음 모드에서도 소리가 나게(지원하는 폰만)
+      if (navigator.audioSession) navigator.audioSession.type = "playback";
+      ctx ||= new AudioCtx();
+      if (ctx.state !== "running") ctx.resume().catch(() => {});
+    } catch {}
+  }
   if (!canSpeak || unlocked) return;
   unlocked = true;
   const u = new SpeechSynthesisUtterance(" ");
