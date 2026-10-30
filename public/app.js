@@ -2,7 +2,7 @@
 // 사진은 저장하지 않는다. 문제 글과 대화는 이 폰 안에만 기록한다(history.js).
 
 import { lang, t, applyStatic } from "./i18n.js";
-import { canListen, canSpeak, toggleListening, speak, stopSpeaking, unlockSpeech } from "./voice.js";
+import { canListen, canSpeak, toggleListening, speak, stopSpeaking, unlockSpeech, nextVoice, voiceCount } from "./voice.js";
 
 const $ = (id) => document.getElementById(id);
 import { newId, saveItem, listItems, getItem, deleteItem, formatDate, summarizing, useHistoryOf } from "./history.js";
@@ -422,6 +422,16 @@ if (canSpeak) {
     } else {
       stopSpeaking();
     }
+  };
+  // 🗣 누를 때마다 다음 목소리로 바꾸고 바로 들려준다. 고른 목소리는 폰에 기억된다.
+  $("btn-voice").hidden = false;
+  $("btn-voice").onclick = () => {
+    unlockSpeech();
+    if (voiceCount() < 2) return toast(t("voice.onlyOne"));
+    const name = nextVoice();
+    if (!name) return toast(t("voice.onlyOne"));
+    toast(t("voice.changed", { name }));
+    speak(t("voice.sample"));
   };
 }
 

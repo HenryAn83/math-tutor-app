@@ -58,8 +58,10 @@ export function mathToSpeech(text) {
   if (lang === "en") return mathToSpeechEn(text);
   return (
     text
-      // 이모지, 그림 짚기 표시(⟦ ⟧) 빼기
-      .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}⟦⟧]/gu, "")
+      // 이모지, 그림 짚기 표시(⟦ ⟧), 꾸밈 글자(** # `) 빼기
+      .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}⟦⟧*#`]/gu, "")
+      // "음~" "그렇지~~" 의 물결은 길게 끄는 말이라 쉼표로(안 그러면 "물결"이라고 읽는 폰이 있다)
+      .replace(/~+/g, ",")
       // 분수 a/b → b분의 a
       .replace(/(\(?[\w.²³]+\)?)\s*\/\s*(\(?[\w.²³]+\)?)/g, "$2분의 $1")
       // x^2 처럼 쓴 거듭제곱
@@ -107,7 +109,8 @@ export function mathToSpeech(text) {
 // 글자 하나(x, y, A)는 영어 음성이 알아서 잘 읽으니 그대로 둔다.
 function mathToSpeechEn(text) {
   return text
-    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}⟦⟧]/gu, "")
+    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}⟦⟧*#`]/gu, "")
+    .replace(/~+/g, ",")
     .replace(/(\(?[\w.²³]+\)?)\s*\/\s*(\(?[\w.²³]+\)?)/g, "$1 over $2")
     .replace(/\^\s*2(?!\d)/g, "²")
     .replace(/\^\s*3(?!\d)/g, "³")
@@ -145,18 +148,72 @@ function mathToSpeechEn(text) {
     .trim();
 }
 
+// 폰/브라우저마다 들어 있는 목소리가 다르다. 사람 같은 목소리에 점수를 많이 줘서 가장 좋은 걸 고른다.
+// - 아이폰: "Yuna (향상됨/프리미엄)", "Ava (Premium)" 처럼 받아 둔 고품질 목소리
+// - 엣지: "Microsoft SunHi Online (Natural)" 같은 자연스러운 목소리
+// - 크롬/안드로이드: "Google 한국의", 삼성 목소리
+// 장난감 같은 목소리(Bubbles, Zarvox 등)와 옛날 기계 목소리(Fred 등)는 빼 버린다.
+const ROBOTIC =
+  /albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|ralph|kathy|grandma|grandpa|eddy|flo\b|reed|rocko|sandy|shelley|espeak/i;
+const NICE = {
+  ko: /yuna|유나|sunhi|선희|sora|소라|jimin|seoyeon|서연|hyunsu/i,
+  en: /ava|samantha|zoe|allison|susan|aria|jenny|emma|michelle|ana\b|serena|nicky|google us/i,
+};
+
+function score(v) {
+  const name = v.name || "";
+  const vlang = (v.lang || "").replace("_", "-");
+  if (!vlang.toLowerCase().startsWith(SPEECH_LANG.split("-")[0])) return -1;
+  if (ROBOTIC.test(name)) return -1;
+  let s = 0;
+  if (vlang === SPEECH_LANG) s += 10;
+  if (/natural|neural|online/i.test(name)) s += 100;
+  if (/premium|프리미엄/i.test(name)) s += 90;
+  if (/enhanced|향상/i.test(name)) s += 70;
+  if (/google/i.test(name)) s += 50;
+  if (/samsung|삼성/i.test(name)) s += 40;
+  if (v.localService === false) s += 20; // 인터넷으로 만드는 목소리가 보통 더 자연스럽다
+  if (NICE[lang]?.test(name)) s += 15;
+  if (v.default) s += 5;
+  return s;
+}
+
+// 좋은 순서대로 쓸 수 있는 목소리 목록
+let ranked = [];
 let voice = null;
+const VOICE_KEY = "voiceName_" + lang;
+
 function pickVoice() {
-  const voices = speechSynthesis.getVoices();
-  const base = SPEECH_LANG.split("-")[0];
-  const nice = lang === "ko" ? /yuna|female|여/i : /samantha|google us|female|aria|jenny/i;
-  voice = voices.find((v) => v.lang?.replace("_", "-") === SPEECH_LANG && nice.test(v.name)) ||
-    voices.find((v) => v.lang?.replace("_", "-") === SPEECH_LANG) ||
-    voices.find((v) => v.lang?.startsWith(base)) || null;
+  ranked = speechSynthesis
+    .getVoices()
+    .map((v) => ({ v, s: score(v) }))
+    .filter((x) => x.s >= 0)
+    .sort((a, b) => b.s - a.s)
+    .map((x) => x.v);
+  let saved = null;
+  try {
+    saved = localStorage.getItem(VOICE_KEY);
+  } catch {}
+  voice = ranked.find((v) => v.name === saved) || ranked[0] || null;
 }
 if (canSpeak) {
   pickVoice();
   speechSynthesis.addEventListener?.("voiceschanged", pickVoice);
+}
+
+// 🗣 버튼: 다음 목소리로 바꾸고 이름을 돌려준다(맘에 드는 목소리를 아이가 고를 수 있게).
+export function voiceCount() {
+  return ranked.length;
+}
+export function nextVoice() {
+  if (!ranked.length) pickVoice();
+  if (!ranked.length) return null;
+  const i = ranked.indexOf(voice);
+  voice = ranked[(i + 1) % ranked.length];
+  try {
+    localStorage.setItem(VOICE_KEY, voice.name);
+  } catch {}
+  return voice.name.replace(/\s*\(.*?\)\s*/g, " ").replace(/^Microsoft |^Google /, "").trim();
 }
 
 // 긴 글은 문장 단위로 나눠 읽는다(한 번에 길게 읽으면 중간에 끊기는 폰이 있다).
@@ -171,9 +228,10 @@ let current = null; // 지금 읽는 중인 것 { onEnd }
 
 // 핵심설명은 조금 천천히, 조금 높게 읽고 앞에 "핵심 설명!"을 붙인다.
 // 브라우저 기본 음성은 감정 어투를 못 바꾸고 속도와 높낮이만 바꿀 수 있다.
-const NORMAL = { rate: 1.0, pitch: 1.0 };
-const EMPHASIS = { rate: 0.9, pitch: 1.15 };
-const TITLE = { rate: 0.95, pitch: 1.25 };
+// 높낮이를 많이 올리면 기계 소리처럼 들려서 살짝만 바꾼다. 평소엔 조금 천천히, 또박또박.
+const NORMAL = { rate: 0.95, pitch: 1.02 };
+const EMPHASIS = { rate: 0.85, pitch: 1.06 };
+const TITLE = { rate: 0.9, pitch: 1.1 };
 
 // text(글 하나, 또는 [{ text, emphasis }] 목록)를 읽는다. 다 읽거나 멈추면 onEnd()를 한 번 부른다.
 // onPart(원래 문장)는 문장마다 읽기 시작할 때 불린다(그림 깜빡임을 말과 맞추려고).
