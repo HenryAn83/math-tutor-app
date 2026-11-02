@@ -14,14 +14,26 @@ function getClient() {
   return client;
 }
 
-// 가입할 때만 초대 코드(ACCESS_CODE, 링크의 ?k=)를 확인한다. 모르는 사람이 가입해서 하루 한도를 다 쓰지 않게.
-// 가입한 뒤에는 아이디·비밀번호로만 들어온다. 코드가 설정 안 됐으면 아무도 가입 못 한다.
-export function inviteOk(code) {
-  const expected = process.env.ACCESS_CODE;
-  const given = String(code || "").trim();
-  return Boolean(
-    expected && given.length === expected.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected)),
-  );
+// 가입은 누구나 할 수 있다. 대신 같은 인터넷 주소(IP)에서 하루에 만들 수 있는 아이디 수를 제한해
+// 한 사람이 아이디를 계속 새로 만들어 무료 문제를 받아 가지 못하게 한다.
+// 학교·집 와이파이는 여러 명이 같은 주소를 쓰므로 너무 낮게 잡지 않는다. SIGNUPS_PER_IP로 바꿀 수 있다.
+export const SIGNUPS_PER_IP = Number(process.env.SIGNUPS_PER_IP || 5);
+
+export function clientIp(req) {
+  const fwd = String(req.headers?.["x-forwarded-for"] || "").split(",")[0].trim();
+  return fwd || req.headers?.["x-real-ip"] || req.socket?.remoteAddress || "unknown";
+}
+
+const signupIpKey = (ip) => `signupip:${today()}:${ip}`;
+
+export async function signupAllowed(req) {
+  return Number((await redis("GET", signupIpKey(clientIp(req)))) || 0) < SIGNUPS_PER_IP;
+}
+
+export async function countSignup(req) {
+  const key = signupIpKey(clientIp(req));
+  const n = await redis("INCRBY", key, 1);
+  if (n === 1) await redis("EXPIRE", key, 2 * 864e2);
 }
 
 export function onlyPost(req, res) {

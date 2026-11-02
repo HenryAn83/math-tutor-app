@@ -42,9 +42,9 @@ Vercel 대시보드 → 프로젝트 → Settings → Environment Variables 에 
 | 이름 | 값 |
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com 에서 만든 키 (`sk-ant-...`) |
-| `ACCESS_CODE` | 가입할 때만 쓰는 초대 코드 (예: `sun-river-2817-maple`). 가입한 뒤에는 아이디·비밀번호로만 들어옴 |
+| `SIGNUPS_PER_IP` | (선택) 같은 인터넷 주소에서 하루에 만들 수 있는 아이디 수. 기본 5. 가입은 초대 코드 없이 누구나 가능 |
 
-초대 링크: `https://<프로젝트>.vercel.app/?k=<ACCESS_CODE>` (열면 바로 가입 화면, 코드는 자동 입력. 코드 없이 열면 로그인 화면이고, 가입할 때 초대 코드 칸이 나옴)
+앱 주소만 알려 주면 누구나 가입할 수 있음. 처음 여는 폰은 가입 화면, 한 번 로그인한 폰은 로그인 화면이 먼저 나옴. 예전 초대 링크(`?k=...`)도 그대로 열림 (코드는 무시). `ACCESS_CODE`는 이제 쓰지 않음
 한 번 열면 폰이 코드를 기억하므로, 그다음부터는 홈 화면 아이콘으로 열면 됩니다.
 
 계정 기능에 필요한 것:
@@ -69,5 +69,5 @@ Vercel 대시보드 → 프로젝트 → Settings → Environment Variables 에 
 ```bash
 npm install
 npm run dev:mock     # AI 없이 가짜 답으로 화면만 확인 (http://localhost:3000/?k=test)
-ANTHROPIC_API_KEY=sk-ant-... ACCESS_CODE=test npm run dev   # 진짜 AI로
+ANTHROPIC_API_KEY=sk-ant-... npm run dev   # 진짜 AI로
 ```

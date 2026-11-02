@@ -163,7 +163,6 @@ const en = {
   "login.idPh": "Username (a–z, 0–9)",
   "login.passPh": "Password (4+ characters)",
   "login.namePh": "Name (what your coach calls you)",
-  "login.invitePh": "Invite code (it's in your link)",
   "login.free": "Sign up to solve 5 problems for free.",
   "home.lead": "Snap a photo of a problem you're stuck on.<br />Instead of giving answers, I'll ask questions and we'll solve it together.",
   "home.camera": "📷 Take a photo",
