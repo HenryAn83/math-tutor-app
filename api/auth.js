@@ -1,20 +1,23 @@
 // 가입, 로그인, 내 정보(이름, 남은 무료 문제). AI를 부르지 않으므로 비용이 없다.
-import { inviteOk, onlyPost, sendError } from "./_lib.js";
+import { signupAllowed, countSignup, onlyPost, sendError } from "./_lib.js";
 import { signup, login, requireUser, creditsOf } from "./_auth.js";
 import { HAS_DB } from "./_db.js";
 import { say } from "./_i18n.js";
 
 export default async function handler(req, res) {
   if (!onlyPost(req, res)) return;
-  const { action, id, password, name, invite } = req.body || {};
+  const { action, id, password, name } = req.body || {};
   // Vercel에 올렸는데 저장소가 없으면 가입한 아이디가 금방 사라지니 미리 알려 준다.
   if (process.env.VERCEL && !HAS_DB) {
     return res.status(503).json({ error: say(req, "noDb") });
   }
   try {
     if (action === "signup") {
-      if (!inviteOk(invite)) return res.status(400).json({ error: say(req, "badInvite"), badInvite: true });
-      return res.json(await signup({ id, password, name }));
+      // 초대 코드 없이 누구나 가입. 옛 초대 링크(?k=)로 와도 코드는 그냥 무시한다.
+      if (!(await signupAllowed(req))) return res.status(429).json({ error: say(req, "tooManySignups") });
+      const result = await signup({ id, password, name });
+      await countSignup(req);
+      return res.json(result);
     }
     if (action === "login") return res.json(await login({ id, password }));
     const user = await requireUser(req, res);

@@ -1,5 +1,5 @@
 // 내 컴퓨터에서 Vercel 없이 돌려 보는 작은 서버. 배포에는 쓰이지 않는다.
-// 사용: ANTHROPIC_API_KEY=... ACCESS_CODE=... npm run dev  (또는 npm run dev:mock)
+// 사용: ANTHROPIC_API_KEY=... npm run dev  (또는 npm run dev:mock)
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -55,4 +55,4 @@ http
       res.writeHead(404).end("not found");
     }
   })
-  .listen(port, () => console.log(`http://localhost:${port}/?k=${process.env.ACCESS_CODE || "(ACCESS_CODE 없음)"}`));
+  .listen(port, () => console.log(`http://localhost:${port}/`));

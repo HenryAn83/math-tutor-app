@@ -11,15 +11,14 @@ import { usableFigure, figureLabels, drawFigure, markRefs, resolveRef, blink } f
 
 applyStatic();
 
-// 초대 링크(?k=코드)의 코드는 가입할 때 쓰려고 기억하고, 주소창에서는 지운다.
-
+// 가입은 누구나 할 수 있다. 예전에 보낸 초대 링크(?k=코드)로 오면 바로 가입 화면을 보여 주고,
+// 코드는 더 이상 필요 없으니 주소창에서 지운다.
 const params = new URLSearchParams(location.search);
-if (params.get("k")) {
-  localStorage.setItem("accessCode", params.get("k"));
-  history.replaceState(null, "", location.pathname);
-}
-let accessCode = localStorage.getItem("accessCode") || "";
+const cameFromLink = params.has("k");
+if (cameFromLink) history.replaceState(null, "", location.pathname);
+localStorage.removeItem("accessCode"); // 예전 버전이 기억해 둔 코드 정리
 let authToken = localStorage.getItem("authToken") || "";
+if (authToken) localStorage.setItem("everLoggedIn", "1"); // 이미 쓰던 폰은 로그아웃해도 로그인 화면부터
 let me = null; // { id, name, admin, credits(null이면 무제한) }
 
 const state = {
@@ -70,7 +69,6 @@ export async function api(path, body) {
   }
   if (!res.ok) {
     const err = new Error(data.error || t("err.network"));
-    if (data.badInvite) err.code = "badInvite";
     throw err;
   }
   return data;
@@ -556,15 +554,14 @@ for (const b of document.querySelectorAll("[data-quick]")) {
 
 // ---------- 로그인 / 가입 ----------
 
-// 초대 링크로 처음 온 사람은 바로 가입 화면을 보여 준다
-let signingUp = Boolean(accessCode) && !authToken;
+// 링크로 처음 온 사람이나, 이 폰에서 한 번도 로그인한 적 없는 사람은 바로 가입 화면을 보여 준다.
+// (이미 아이디가 있으면 아래 "로그인하기"를 누르면 된다)
+let signingUp = !authToken && (cameFromLink || !localStorage.getItem("everLoggedIn"));
 
 function renderLoginMode() {
   $("login-lead").textContent = t(signingUp ? "login.leadSignup" : "login.lead");
   $("login-name").hidden = !signingUp;
   $("login-free").hidden = !signingUp;
-  // 링크에 코드가 있었으면 칸을 숨기고 자동으로 쓴다. 없거나 틀렸으면 직접 넣게 한다.
-  $("login-invite").hidden = !signingUp || Boolean(accessCode);
   $("login-pass").autocomplete = signingUp ? "new-password" : "current-password";
   $("login-submit").textContent = t(signingUp ? "login.submitSignup" : "login.submit");
   $("login-switch").textContent = t(signingUp ? "login.toLogin" : "login.toSignup");
@@ -584,7 +581,6 @@ $("login-form").addEventListener("submit", async (e) => {
     id: $("login-id").value.trim(),
     password: $("login-pass").value,
     name: $("login-name").value.trim(),
-    invite: $("login-invite").value.trim() || accessCode,
   };
   if (!body.id || !body.password || (signingUp && !body.name)) return toast(t("login.blank"));
   $("login-submit").disabled = true;
@@ -592,17 +588,11 @@ $("login-form").addEventListener("submit", async (e) => {
     const { token } = await api("auth", body);
     authToken = token;
     localStorage.setItem("authToken", token);
+    localStorage.setItem("everLoggedIn", "1");
     $("login-pass").value = "";
     await startSession();
   } catch (err) {
     toast(err.message);
-    if (/badInvite/.test(err.code)) {
-      // 기억해 둔 코드가 틀렸으면 지우고 칸을 보여 준다
-      accessCode = "";
-      localStorage.removeItem("accessCode");
-      renderLoginMode();
-      $("login-invite").focus();
-    }
   } finally {
     $("login-submit").disabled = false;
   }
