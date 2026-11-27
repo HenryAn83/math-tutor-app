@@ -7,6 +7,7 @@ import { canListen, canSpeak, toggleListening, speak, stopSpeaking, unlockSpeech
 const $ = (id) => document.getElementById(id);
 import { newId, saveItem, listItems, getItem, deleteItem, formatDate, summarizing, useHistoryOf } from "./history.js";
 import { openAdmin } from "./admin.js";
+import { weakUnits, weakForTutor, HELP_WORDS } from "./weak.js";
 import { usableFigure, figureLabels, drawFigure, markRefs, resolveRef, blink } from "./figure.js";
 
 applyStatic();
@@ -32,11 +33,15 @@ const state = {
   agree: true,
   figure: null, // 다시 그린 문제 그림(figure.js). 없으면 null
   figureSvg: null, // 대화 화면에 그려진 그림
+  weak: [], // 이 문제를 시작할 때의 약점 목록(weak.js). 선생님이 짚어 줄 때 쓴다
 };
 
 export function show(name) {
   for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== `screen-${name}`;
-  if (name === "home") renderHistoryButton();
+  if (name === "home") {
+    renderHistoryButton();
+    renderWeakButton();
+  }
   if (name === "camera") startCamera();
   else stopCamera();
   window.scrollTo(0, 0);
@@ -289,6 +294,7 @@ async function confirmProblem() {
     state.id = newId();
     state.createdAt = Date.now();
     state.agree = result.agree;
+    state.weak = weakForTutor();
     openChat();
     await sendToTutor();
   } catch (err) {
@@ -428,7 +434,7 @@ async function sendToTutor() {
   state.busy = true;
   const typing = addBubble("assistant typing", "…");
   try {
-    const { reply } = await api("chat", { sealed: state.sealed, messages: state.messages });
+    const { reply } = await api("chat", { sealed: state.sealed, messages: state.messages, weak: state.weak });
     typing.remove();
     state.messages.push({ role: "assistant", content: reply });
     const bubble = addBubble("assistant", reply);
@@ -879,14 +885,20 @@ async function summarize(id) {
     const summary = await api("summary", { sealed: item.sealed, messages: item.messages });
     const latest = getItem(id);
     if (latest) {
-      saveItem({ id, createdAt: latest.createdAt, problem: latest.problem, agree: latest.agree, summary });
+      // 힌트·모르겠어를 몇 번 눌렀는지도 남긴다(약점 노트에서 "막힘"을 가늠할 때 씀)
+      const hints = item.messages.filter((m) => m.role === "user" && HELP_WORDS.includes(m.content)).length;
+      saveItem({ id, createdAt: latest.createdAt, problem: latest.problem, agree: latest.agree, summary, hints });
     }
   } catch {
     // 실패하면 대화를 그대로 두고 다음에 다시 정리한다
   } finally {
     summarizing.delete(id);
     if (!$("screen-history").hidden) renderHistory();
-    if (!$("screen-home").hidden) renderHistoryButton();
+    if (!$("screen-home").hidden) {
+      renderHistoryButton();
+      renderWeakButton();
+    }
+    if (!$("screen-weak").hidden) renderWeak();
   }
 }
 
@@ -938,7 +950,10 @@ function renderHistory() {
 
 let noteTitle = "";
 
-function showNote(item) {
+let noteFrom = "history"; // 풀이 노트에서 "목록으로"를 누르면 돌아갈 곳
+
+function showNote(item, from = "history") {
+  noteFrom = from;
   const s = item.summary;
   $("note-title").textContent = s.title;
   noteTitle = s.title;
@@ -960,5 +975,72 @@ function showNote(item) {
 
 $("btn-history").onclick = renderHistory;
 $("btn-history-back").onclick = () => show("home");
-$("btn-note-back").onclick = renderHistory;
+$("btn-note-back").onclick = () => (noteFrom === "weak" ? renderWeak() : renderHistory());
 $("btn-note-feedback").onclick = () => openFeedback(noteTitle);
+
+// ---------- 약점 노트 ----------
+// 풀이 노트에서 자주 막힌 단원을 모아 보여 준다(weak.js). 이 폰 안에서만 계산하고 따로 저장하지 않는다.
+
+function renderWeakButton() {
+  $("btn-weak").hidden = !listItems().some((x) => x.summary);
+}
+
+function renderWeak() {
+  const units = weakUnits();
+  const shown = units.filter((u) => u.status !== "good");
+  const good = units.filter((u) => u.status === "good");
+  const list = $("weak-list");
+  list.innerHTML = "";
+  for (const u of shown) {
+    const card = document.createElement("details");
+    card.className = `card weak-item ${u.status}`;
+    if (u.status === "weak") card.open = true;
+    const head = document.createElement("summary");
+    const name = document.createElement("span");
+    name.className = "weak-unit";
+    name.textContent = u.unit;
+    const badge = document.createElement("span");
+    badge.className = `weak-badge ${u.status}`;
+    badge.textContent = t(`weak.status.${u.status}`);
+    const count = document.createElement("div");
+    count.className = "sub";
+    count.textContent = t("weak.count", { n: u.stuckCount, total: u.total });
+    head.append(name, badge, count);
+    card.append(head);
+    if (u.stuckLines.length) {
+      const box = document.createElement("div");
+      box.className = "weak-watch";
+      const b = document.createElement("b");
+      b.textContent = t("weak.watch");
+      const ul = document.createElement("ul");
+      for (const line of u.stuckLines) {
+        const li = document.createElement("li");
+        li.textContent = line;
+        ul.append(li);
+      }
+      box.append(b, ul);
+      card.append(box);
+    }
+    const sub = document.createElement("div");
+    sub.className = "weak-problems";
+    const label = document.createElement("b");
+    label.textContent = t("weak.problems");
+    sub.append(label);
+    for (const item of u.items.slice(0, 5)) {
+      const btn = document.createElement("button");
+      btn.className = "btn small weak-problem";
+      btn.textContent = `${item.summary.title} · ${formatDate(item.createdAt)}`;
+      btn.onclick = () => showNote(item, "weak");
+      sub.append(btn);
+    }
+    card.append(sub);
+    list.append(card);
+  }
+  $("weak-empty").hidden = shown.length > 0;
+  $("weak-good-box").hidden = good.length === 0;
+  $("weak-good").textContent = good.map((u) => t("weak.goodItem", { unit: u.unit, total: u.total })).join("\n");
+  show("weak");
+}
+
+$("btn-weak").onclick = renderWeak;
+$("btn-weak-back").onclick = () => show("home");
