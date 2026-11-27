@@ -94,6 +94,25 @@ const ko = {
   "voice.silent": "소리가 안 들렸어. 🎤 누르고 다시 말해 줄래?",
   "voice.failed": "음성 인식이 잘 안 됐어. 글자로 써 줄래?",
   "figure.aria": "문제 그림",
+  "answer.empty": "답을 먼저 적어 줘!",
+  "answer.wait": "내 답 맞춰 보는 중…",
+  "answer.waitSub": "틀리게 채점하면 안 되니까 선생님도 두 번 풀어 볼게. 30초~1분쯤 걸려.",
+  "answer.mine": "내 답: {answer}",
+  "answer.wrongNote": "아쉽게 답이 달라. 선생님이랑 어디서 달라졌는지 찾아보자!",
+  "answer.unclearNote": "맞았는지 바로 말하기 어려워. 선생님이랑 같이 확인해 보자!",
+  "result.answer": "답: {answer}",
+  "result.moreMsg": "맞혔어! 비슷한 문제 하나 내 줘.",
+  "chat.sawAll": "(풀이 전체 보기를 눌러서 풀이를 다 봤어.)",
+  "chat.showAllTitle": "📖 전체 풀이",
+  "chat.showAllAnswer": "답: {answer}",
+  "chat.showAllUnsure": "⚠️ 선생님이 두 번 풀었는데 답이 달랐어. 아래 두 풀이 중 어느 게 맞는지 학교 선생님이나 해설지로 꼭 확인해 줘.",
+  "chat.showAllNum": "풀이 {n}",
+  "chat.showAllReady": "막히면 언제든 '📖 풀이 보기'를 눌러도 돼.",
+  "cards.button": "📇 개념 카드 {n}장",
+  "cards.saved": "📇 개념 카드에 담았어!",
+  "cards.today": "오늘",
+  "cards.delete": "지우기",
+  "cards.deleteConfirm": "이 카드를 지울까?",
 };
 
 const en = {
@@ -168,6 +187,38 @@ const en = {
   "voice.silent": "I didn't hear anything. Tap 🎤 and try again?",
   "voice.failed": "Voice input didn't work. Can you type it instead?",
   "figure.aria": "Problem drawing",
+  "answer.empty": "Type your answer first!",
+  "answer.wait": "Checking your answer…",
+  "answer.waitSub": "I solve it twice so I don't mark you wrong by mistake. About 30 seconds to 1 minute.",
+  "answer.mine": "My answer: {answer}",
+  "answer.wrongNote": "Not quite. Let's find where it went a different way!",
+  "answer.unclearNote": "I can't say for sure yet. Let's check it together!",
+  "result.answer": "Answer: {answer}",
+  "result.moreMsg": "I got it! Give me a similar one.",
+  "chat.sawAll": "(I tapped Show solution and read the whole solution.)",
+  "chat.showAllTitle": "📖 Full solution",
+  "chat.showAllAnswer": "Answer: {answer}",
+  "chat.showAllUnsure": "⚠️ I solved it twice and got different answers. Please check with your teacher or the answer key which one is right.",
+  "chat.showAllNum": "Solution {n}",
+  "chat.showAllReady": "Stuck? You can tap '📖 Show solution' any time.",
+  "cards.button": "📇 Concept cards ({n})",
+  "cards.saved": "📇 Saved to your concept cards!",
+  "cards.today": "Today",
+  "cards.delete": "Delete",
+  "cards.deleteConfirm": "Delete this card?",
+  "answer.title": "Already solved it? I'll just check your answer",
+  "answer.ph": "My answer (e.g. x = 11)",
+  "answer.check": "✅ Check my answer",
+  "chat.showAll": "📖 Show solution",
+  "result.title": "You got it!",
+  "cards.label": "📇 Today's concept",
+  "result.saved": "Saved to your concept cards.",
+  "result.steps": "📄 See the solution",
+  "result.next": "📷 Next problem",
+  "result.more": "💬 One more like this, with my coach",
+  "cards.title": "📇 Concept cards",
+  "cards.note": "One key idea from each problem you solved. Skim them before a test! (Saved only on this phone)",
+  "cards.empty": "No cards yet. Finish a problem and its key idea shows up here.",
 
   // 화면에 처음부터 적힌 글 (index.html의 data-i18n)
   "login.idPh": "Username (a–z, 0–9)",
@@ -239,7 +290,7 @@ const en = {
             <div class="mock-row"><span class="mock-btn primary small">Yes, let's go!</span><span class="mock-btn small">Fix it</span></div>
           </div>
           <h2>2. Check what I read</h2>
-          <p>If I read it right, tap <b>Yes, let's go!</b><br />If something's wrong, tap <b>Fix it</b> and correct it.</p>`,
+          <p>If I read it right, tap <b>Yes, let's go!</b> If something's wrong, tap <b>Fix it</b>.<br />Already solved it? Type your answer and tap <b>✅ Check my answer</b>. If it's right, you're done!</p>`,
   "tut.3": `<div class="slide-art">
             <div class="mock-bubble tutor">What happens if you distribute the 3?</div>
             <div class="mock-bubble me">3x − 6!</div>
@@ -260,10 +311,11 @@ const en = {
           <p>Your coach's messages are read aloud.<br />Use <b>🔊</b> at the top to turn sound on or off, and <b>Play again</b> under a bubble to hear it again.</p>`,
   "tut.6": `<div class="slide-art">
             <div class="mock-btn">📚 Past problems</div>
+            <div class="mock-btn">📇 Concept cards</div>
             <div class="mock-btn">💬 Send feedback</div>
           </div>
           <h2>6. Review and tell us what you think</h2>
-          <p>Find these under <b>☰ Menu</b> at the top left of the camera.<br />Solved problems are saved as notes in <b>📚 Past problems</b>. Anything annoying? Tell us with <b>💬 Send feedback</b>!</p>`,
+          <p>Find these under <b>☰ Menu</b> at the top left of the camera.<br />Solved problems are saved as notes in <b>📚 Past problems</b>, and their key ideas in <b>📇 Concept cards</b>. Anything annoying? Tell us with <b>💬 Send feedback</b>!</p>`,
 };
 
 const DICTS = { ko, en };

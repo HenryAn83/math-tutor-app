@@ -208,3 +208,32 @@ button.cam-chip { cursor: pointer; }
 .cam-shutter:active { transform: scale(.94); }
 .cam-shutter:disabled { opacity: .35; }
 .mock-shutter { width: 52px; height: 52px; border-radius: 50%; background: #fff; border: 4px solid var(--text); box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 6px var(--text); flex: none; }
+
+/* 내 답 확인 */
+.answer-box { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.answer-box b { font-size: 15px; }
+.answer-row { display: flex; gap: 8px; }
+.answer-row input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font: inherit; background: var(--bg); color: var(--text); }
+.answer-row .btn { flex: none; padding: 10px 12px; }
+#screen-result { text-align: center; }
+.result-mark { font-size: 64px; margin-top: 32px; line-height: 1; }
+#screen-result h2 { font-size: 28px; }
+#screen-result details { text-align: left; }
+#screen-result summary { cursor: pointer; font-weight: 600; }
+
+/* 답답할 때 탈출구 */
+.quick button.show-all { background: var(--warn); color: var(--warn-text); border-color: transparent; font-weight: 700; }
+.bubble.solution { max-width: 92%; border: 2px solid var(--warn-text); display: flex; flex-direction: column; gap: 6px; }
+.solution-title { font-weight: 800; }
+.solution-steps { white-space: pre-wrap; }
+.solution-answer { font-weight: 700; color: var(--ok-text); background: var(--ok); padding: 4px 8px; border-radius: 8px; align-self: flex-start; }
+
+/* 개념 카드 */
+.cards-list { display: flex; flex-direction: column; gap: 10px; }
+.cards-day { font-size: 15px; color: var(--muted); margin: 8px 0 0; }
+.concept-card { background: var(--ok); color: var(--ok-text); border-color: transparent; }
+#screen-cards .concept-card { display: flex; align-items: center; padding: 0; }
+.concept-open { flex: 1; text-align: left; background: none; border: none; color: inherit; font: inherit; padding: 12px 14px; cursor: pointer; min-width: 0; }
+.concept-label { font-size: 14px; font-weight: 700; }
+.concept-key { font-size: 19px; font-weight: 700; line-height: 1.4; }
+.concept-card .sub { color: var(--ok-text); opacity: .8; font-size: 14px; }

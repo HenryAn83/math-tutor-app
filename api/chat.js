@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   let session;
   try {
     session = unseal(sealed);
-    if (session.user !== user.id) throw new Error("other user");
+    if (session.user !== user.id || session.pre) throw new Error("other user"); // 미리 푼 상자(pre)는 "맞아" 전이라 못 쓴다
   } catch {
     return res.status(400).json({ error: say(req, "restart") });
   }
