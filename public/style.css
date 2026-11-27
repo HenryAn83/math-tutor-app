@@ -208,3 +208,21 @@ button.cam-chip { cursor: pointer; }
 .cam-shutter:active { transform: scale(.94); }
 .cam-shutter:disabled { opacity: .35; }
 .mock-shutter { width: 52px; height: 52px; border-radius: 50%; background: #fff; border: 4px solid var(--text); box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 6px var(--text); flex: none; }
+
+/* 약점 노트 */
+.weak-list { display: flex; flex-direction: column; gap: 10px; }
+.weak-item > summary { cursor: pointer; list-style: none; }
+.weak-item > summary::-webkit-details-marker { display: none; }
+.weak-item.weak { border-left: 5px solid #e5484d; }
+.weak-item.practice { border-left: 5px solid #f5a524; }
+.weak-item.better { border-left: 5px solid #30a46c; }
+.weak-unit { font-weight: 700; font-size: 17px; margin-right: 6px; }
+.weak-badge { font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.weak-badge.weak { background: #fde8e8; color: #b42318; }
+.weak-badge.practice { background: #fff4e0; color: #8a5a00; }
+.weak-badge.better { background: #e6f6ec; color: #18794e; }
+.weak-watch { margin-top: 10px; }
+.weak-watch ul { margin: 4px 0 0; padding-left: 20px; }
+.weak-problems { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.weak-problem { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.weak-good { white-space: pre-line; margin-top: 6px; color: var(--muted); }

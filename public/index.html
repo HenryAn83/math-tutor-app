@@ -71,6 +71,7 @@
         <input id="input-album" type="file" accept="image/*" hidden />
       </label>
       <button id="btn-type" class="btn link" data-i18n="home.type">사진 말고 직접 쓸래</button>
+      <button id="btn-weak" class="btn" hidden data-i18n="weak.button">🎯 약점 노트</button>
       <button id="btn-history" class="btn" hidden>📚 지난 문제</button>
       <div class="row">
         <button id="btn-feedback" class="btn" data-i18n="home.feedback">💬 의견 보내기</button>
@@ -152,6 +153,21 @@
       <div id="history-list" class="history-list"></div>
       <p id="history-empty" class="sub" data-i18n="history.empty" hidden>아직 푼 문제가 없어.</p>
       <button id="btn-history-back" class="btn link" data-i18n="common.home">처음으로</button>
+    </section>
+
+    <!-- 5-1. 약점 노트: 풀이 노트에서 자주 막힌 단원을 모아 보여 준다 (이 폰 안에서만 계산) -->
+    <section id="screen-weak" class="screen" hidden>
+      <h2 data-i18n="weak.title">🎯 약점 노트</h2>
+      <p class="sub" data-i18n="weak.note">자주 막힌 단원을 모아 봤어. 다음 문제에서 선생님이 여기를 한 번 더 짚어 줄게. 이 폰 안에만 있어.</p>
+      <div id="weak-list" class="weak-list"></div>
+      <div id="weak-empty" class="card sub" hidden>
+        <p data-i18n="weak.empty">아직 기록이 부족해. 문제를 몇 개 더 풀면 어디서 자주 막히는지 보여 줄게.</p>
+      </div>
+      <details id="weak-good-box" class="card" hidden>
+        <summary data-i18n="weak.goodTitle">💪 잘하고 있는 단원</summary>
+        <div id="weak-good" class="weak-good"></div>
+      </details>
+      <button id="btn-weak-back" class="btn link" data-i18n="common.home">처음으로</button>
     </section>
 
     <!-- 6. 풀이 노트 -->

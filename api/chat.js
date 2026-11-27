@@ -3,6 +3,7 @@ import { askText, onlyPost, sendError, unseal, MOCK } from "./_lib.js";
 import { tutorSystem } from "./_prompts.js";
 import { requireUser } from "./_auth.js";
 import { say } from "./_i18n.js";
+import { weakNote } from "./_weak.js";
 
 const MAX_TURNS = 60;
 const MAX_MESSAGE = 2000;
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
   }
   try {
     const reply = await askText({
-      system: tutorSystem(session),
+      system: tutorSystem(session) + weakNote(req.body.weak, session.lang), // 약점은 폰이 보내온 것, 저장하지 않음
       messages: convo,
       effort: "medium",
     });
