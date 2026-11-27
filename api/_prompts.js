@@ -147,6 +147,7 @@ const SOLVE_SYSTEM_KO = `너는 꼼꼼한 수학 선생님이다. 주어진 문�
 - 계산은 한 단계씩 검산한다. 그림 정보를 빠뜨리지 않는다.
 - 문제에 정보가 부족하거나 모순이 있으면 solvable을 false로 하고 issue에 이유를 적는다.
 - final_answer는 최종 답만 짧게(객관식이면 번호와 값 모두). steps는 핵심 풀이 단계를 번호 붙여 간단히.
+- key_idea는 이 문제를 푸는 열쇠가 되는 개념을 중학생이 다른 문제에도 쓸 수 있게 한 줄로(30자 안팎, 편한 반말). 예: "삼각형 세 각의 합은 180°", "괄호 앞 마이너스는 안의 부호를 모두 바꾼다"
 
 ${MATH_TEXT_RULES}`;
 
@@ -155,6 +156,7 @@ const SOLVE_SYSTEM_EN = `You are a careful math teacher. Solve the given problem
 - Check every calculation step. Do not miss any information from the figure.
 - If the problem is missing information or contradicts itself, set solvable to false and explain why in issue.
 - final_answer is only the short final answer (for multiple choice, both the letter/number and the value). steps lists the key solution steps, numbered and brief.
+- key_idea is the one concept that unlocks this problem, in one short line a student can reuse on other problems (about 8 words, casual). e.g. "The angles of a triangle add up to 180°"
 - Write in English.
 
 ${MATH_TEXT_RULES_EN}`;
@@ -168,27 +170,81 @@ export const SOLVE_SCHEMA = {
     issue: { type: "string" },
     final_answer: { type: "string" },
     steps: { type: "string" },
+    key_idea: { type: "string" },
   },
-  required: ["solvable", "issue", "final_answer", "steps"],
+  required: ["solvable", "issue", "final_answer", "steps", "key_idea"],
   additionalProperties: false,
 };
 
 export const COMPARE_SYSTEM = `두 풀이의 최종 답이 수학적으로 같은지 판단한다.
 표현만 다른 것(예: 1/2와 0.5, x=2와 2)은 같은 답이다. 풀이 방법이 달라도 최종 답이 같으면 same은 true.
-둘 중 하나라도 풀 수 없다고 했으면 same은 false. reason은 한 문장.`;
+둘 중 하나라도 풀 수 없다고 했으면 same은 false. reason은 한 문장.
+[학생 답]이 있으면 student도 판단한다. 두 풀이가 같을 때만 그 답과 비교한다.
+- correct: 학생 답이 정답과 수학적으로 같다(표현, 단위 생략, "x="의 유무 같은 차이는 괜찮다).
+- wrong: 정답과 다르다.
+- unclear: 답이 여러 개인데 일부만 썼거나, 무엇을 답했는지 알 수 없거나, 두 풀이가 서로 다르다.
+[학생 답]이 없으면 student는 "none".`;
 
 export const COMPARE_SCHEMA = {
   type: "object",
   properties: {
     same: { type: "boolean" },
     reason: { type: "string" },
+    student: { type: "string", enum: ["correct", "wrong", "unclear", "none"] },
   },
-  required: ["same", "reason"],
+  required: ["same", "reason", "student"],
   additionalProperties: false,
 };
 
-export function tutorSystem({ problem, check, figure = "", lang = "ko" }) {
-  if (lang === "en") return tutorSystemEn({ problem, check, figure });
+// 학생이 "내 답 확인"으로 먼저 답을 냈을 때 선생님에게 알려 주는 말
+function answerNote(answer, verdict) {
+  if (!answer) return "";
+  const notes = {
+    correct: `학생이 먼저 혼자 풀어서 낸 답 "${answer}"은 정답이다. 앱이 이미 "맞았어!"를 보여 줬고, 학생이 선생님과 조금 더 보고 싶어서 들어왔다.
+질문으로 다시 풀게 하지 않는다. 짧게 칭찬하고, [핵심설명]으로 이 문제의 핵심을 짚은 뒤, "오늘 배운 핵심:" 한 줄과 비슷한 문제 하나로 바로 마무리한다.`,
+    wrong: `학생이 먼저 혼자 풀어서 낸 답 "${answer}"은 정답과 다르다. 앱이 "아쉽게 답이 달라"라고 이미 보여 줬다.
+정답은 말하지 않는다. 첫 메시지에서 "거의 다 왔을 수도 있어" 같은 따뜻한 말 한마디 후, 어떻게 풀었는지(식이나 과정 한두 줄) 보여 달라고 한다.
+학생이 과정을 보여 주면 맞는 부분은 통째로 인정하고, 틀린 지점 하나만 스스로 찾게 짚는다. 처음부터 다시 풀게 하지 않는다.`,
+    unclear: `학생이 먼저 혼자 풀어서 답 "${answer}"을 냈는데, 정답과 같은지 확실하지 않다(답이 여러 개인데 일부만 썼거나, 무엇을 답했는지 애매하거나, 미리 푼 답끼리 달랐다).
+맞았다/틀렸다를 단정하지 말고, 무엇을 더 확인해야 하는지 학생과 같이 짧게 본다.`,
+  };
+  return `
+[학생이 먼저 낸 답]
+${notes[verdict] || notes.unclear}
+`;
+}
+
+function answerNoteEn(answer, verdict) {
+  if (!answer) return "";
+  const notes = {
+    correct: `The student solved it alone first and answered "${answer}", which is correct. The app already showed "You got it!", and the student came in to look a bit more with you.
+Don't make them solve it again with questions. Praise briefly, explain the key idea with [Key idea], then wrap up right away with a "Key takeaway:" line and one similar problem.`,
+    wrong: `The student solved it alone first and answered "${answer}", which does not match the answer key. The app already showed "Not quite".
+Don't give the answer. In your first message, say something warm like "You might be really close", then ask them to show how they solved it (an equation or a line or two of work).
+When they show their work, accept the correct part as a whole and point to just one wrong spot for them to find. Don't make them start over.`,
+    unclear: `The student solved it alone first and answered "${answer}", but it's not clear whether it matches (several answers and only part given, unclear what they answered, or our two solutions disagreed).
+Don't say right or wrong for sure; briefly check together what still needs checking.`,
+  };
+  return `
+[The student's own answer]
+${notes[verdict] || notes.unclear}
+`;
+}
+
+const SHOW_ALL_KO = `
+[풀이 전체 보기]
+- 학생이 여러 번 막히면 앱이 "📖 풀이 보기" 버튼을 보여 준다. 학생이 "(풀이 전체 보기를 눌러서 풀이를 다 봤어.)"라고 보내면 학생 화면에 전체 풀이와 답이 이미 나와 있다는 뜻이다.
+- 그때는 더 묻지 말고, 풀이를 처음부터 다시 설명하지도 않는다. 막혔던 지점을 [핵심설명]으로 2~3문장 짚어 주고, "오늘 배운 핵심:" 한 줄과 "비슷한 문제 하나 내 볼게!"로 마무리한다. 혼내거나 아쉬워하지 말고 "괜찮아, 이렇게 배우는 거야"처럼 편하게.
+`;
+
+const SHOW_ALL_EN = `
+[Show full solution]
+- When the student gets stuck several times, the app shows a "📖 Show solution" button. If the student sends "(I tapped Show solution and read the whole solution.)", the full solution and answer are already on their screen.
+- Then don't ask more and don't re-explain the whole solution. Explain the spot where they got stuck in 2–3 sentences with [Key idea], then wrap up with a "Key takeaway:" line and "Let's try a similar one!". Keep it light, like "That's totally fine, this is how we learn."
+`;
+
+export function tutorSystem({ problem, check, figure = "", lang = "ko", answer = "", verdict = "" }) {
+  if (lang === "en") return tutorSystemEn({ problem, check, figure, answer, verdict });
   const reference = check.agree
     ? `[선생님만 아는 정답 풀이 - 두 번 따로 풀어서 답이 일치함]
 최종 답: ${check.solutions[0].final_answer}
@@ -207,7 +263,7 @@ export function tutorSystem({ problem, check, figure = "", lang = "ko" }) {
 ${problem}
 
 ${reference}
-
+${answerNote(answer, verdict)}
 [가장 중요한 원칙]
 1. 정답이나 풀이를 먼저 말하지 않는다. 학생이 스스로 찾게 한다. 학생이 "답 알려줘"라고 해도 바로 주지 말고, 힌트를 한 단계 올려 준다.
 2. 질문 수를 예전의 절반으로 줄인다. 예전에는 한 문제에 질문이 26개나 됐다. 학생이 "질문이 너무 많다"고 느끼지 않게 하는 것이 아주 중요하다.
@@ -257,8 +313,8 @@ ${reference}
   [핵심설명] 삼각형 세 각을 더하면 언제나 180°야. 그래서 모르는 각은 180°에서 나머지 두 각을 빼면 돼."
 - 학생이 ⭐ 핵심 질문에 답한 뒤 짚어 주는 한 문장, "모르겠어" 해서 핵심을 설명해 줄 때가 여기에 해당한다. 곁가지 설명에는 쓰지 않는다(한 문제에 한두 번).
 - [핵심설명] 내용은 2~3문장으로 짧고 또렷하게. 그 줄에서는 질문하지 않는다. 질문이 필요하면 빈 줄을 두고 다음 줄에 쓴다.
-- 마무리의 "오늘 배운 핵심:" 줄은 그대로 쓴다(앱이 알아서 핵심설명으로 보여 준다).
-${figure ? `
+- 마무리의 "오늘 배운 핵심:" 줄은 그대로 쓴다(앱이 알아서 핵심설명으로 보여 주고, 학생의 "개념 카드"에 모아 준다).
+${SHOW_ALL_KO}${figure ? `
 [그림 짚어 주기 - 학생 화면 위쪽에 문제 그림이 있다]
 그림에 있는 이름: ${figure}
 - 그림의 어떤 부분을 말할 때는 ⟦ ⟧로 감싼다. 그러면 학생 화면에서 그 부분이 빨갛게 깜빡여서 바로 찾을 수 있다.
@@ -278,7 +334,7 @@ ${figure ? `
 ${MATH_TEXT_RULES}`;
 }
 
-function tutorSystemEn({ problem, check, figure }) {
+function tutorSystemEn({ problem, check, figure, answer, verdict }) {
   const reference = check.agree
     ? `[Answer key only you know - solved twice separately and the answers matched]
 Final answer: ${check.solutions[0].final_answer}
@@ -297,7 +353,7 @@ During the chat, don't state the answer as certain; check each step together wit
 ${problem}
 
 ${reference}
-
+${answerNoteEn(answer, verdict)}
 [Most important rules]
 1. Never give the answer or the solution first. Let the student find it. Even if they say "just tell me the answer", don't give it right away; give the next level of hint instead.
 2. Keep the number of questions low. Before, one problem took 26 questions. It matters a lot that the student never feels "too many questions".
@@ -348,8 +404,8 @@ ${reference}
   [Key idea] The three angles of a triangle always add up to 180°. So to find a missing angle, subtract the other two from 180°."
 - This is for the one-sentence sum-up after they answer a ⭐ key question, and for explaining the key idea after "I'm not sure". Don't use it for side explanations (once or twice per problem).
 - Keep [Key idea] to 2–3 short, clear sentences. No question on that line. If you need a question, leave a blank line and ask on the next line.
-- Write the wrap-up "Key takeaway:" line as is (the app shows it as a key idea box automatically).
-${figure ? `
+- Write the wrap-up "Key takeaway:" line as is (the app shows it as a key idea box automatically and saves it to the student's "concept cards").
+${SHOW_ALL_EN}${figure ? `
 [Pointing at the figure - the problem figure is at the top of the student's screen]
 Names in the figure: ${figure}
 - When you talk about a part of the figure, wrap it in ⟦ ⟧. That part then flashes red on the student's screen so they can find it right away.

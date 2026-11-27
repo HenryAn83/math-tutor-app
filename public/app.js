@@ -7,6 +7,7 @@ import { canListen, canSpeak, toggleListening, speak, stopSpeaking, unlockSpeech
 const $ = (id) => document.getElementById(id);
 import { newId, saveItem, listItems, getItem, deleteItem, formatDate, summarizing, useHistoryOf } from "./history.js";
 import { openAdmin } from "./admin.js";
+import { useCardsOf, saveCard, getCard, listCards, deleteCard, findTakeaway } from "./cards.js";
 import { usableFigure, figureLabels, drawFigure, markRefs, resolveRef, blink } from "./figure.js";
 
 applyStatic();
@@ -32,7 +33,12 @@ const state = {
   agree: true,
   figure: null, // 다시 그린 문제 그림(figure.js). 없으면 null
   figureSvg: null, // 대화 화면에 그려진 그림
+  stuck: 0, // 이번 문제에서 막힌 횟수(힌트, 모르겠어). 3번이면 "📖 풀이 보기"를 보여 준다
 };
+
+// 이만큼 막히면 풀이 전체를 볼 수 있게 탈출구를 연다
+const STUCK_LIMIT = 3;
+const STUCK_WORDS = /몰라|모르겠|모름|힌트|어려워|못\s*하겠|포기|hint|not sure|don'?t know|dunno|idk|no idea|give up|confused/i;
 
 export function show(name) {
   for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== `screen-${name}`;
@@ -236,6 +242,7 @@ function showConfirm(index) {
   $("btn-edit").hidden = false;
   state.figure = usableFigure(p.figure);
   renderConfirmFigure();
+  $("answer-input").value = "";
   show("confirm");
 }
 
@@ -263,6 +270,7 @@ function startTyping() {
   $("btn-edit").hidden = true;
   state.figure = null;
   renderConfirmFigure();
+  $("answer-input").value = "";
   show("confirm");
   $("problem-edit").focus();
 }
@@ -274,12 +282,14 @@ function editProblem() {
   $("problem-edit").focus();
 }
 
-async function confirmProblem() {
+// answer가 있으면 "내 답 확인": 맞으면 결과 화면에서 바로 끝, 틀리거나 애매하면 그때 대화로 들어간다.
+async function confirmProblem(answer = "") {
   if (!$("problem-edit").hidden) state.problem = $("problem-edit").value.trim();
   if (!state.problem) return toast(t("confirm.empty"));
-  wait(t("wait.check"), t("wait.checkSub"));
+  if (answer) wait(t("answer.wait"), t("answer.waitSub"));
+  else wait(t("wait.check"), t("wait.checkSub"));
   try {
-    const result = await api("check", { problem: state.problem, figure: figureLabels(state.figure) });
+    const result = await api("check", { problem: state.problem, figure: figureLabels(state.figure), answer });
     state.sealed = result.sealed;
     if (me && result.credits !== undefined) {
       me.credits = result.credits;
@@ -289,13 +299,81 @@ async function confirmProblem() {
     state.id = newId();
     state.createdAt = Date.now();
     state.agree = result.agree;
+    if (answer && result.verdict === "correct" && result.solution) return showResult(answer, result.solution);
     openChat();
+    if (answer) {
+      // 틀렸거나 애매하면: 내 답을 첫 말로 넣고, 선생님은 답을 알려 주지 않고 어디서 달라졌는지 같이 찾는다
+      if (result.verdict === "wrong") state.stuck = 1;
+      toast(t(result.verdict === "wrong" ? "answer.wrongNote" : "answer.unclearNote"));
+      const text = t("answer.mine", { answer });
+      state.messages.push({ role: "user", content: text });
+      addBubble("user", text);
+    }
     await sendToTutor();
   } catch (err) {
     show("confirm");
     toast(err.message);
   }
 }
+
+$("answer-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const answer = $("answer-input").value.trim();
+  if (!answer) {
+    $("answer-input").focus();
+    return toast(t("answer.empty"));
+  }
+  $("answer-input").blur();
+  if (soundOn) unlockSpeech();
+  confirmProblem(answer);
+});
+
+// ---------- 2-1. 내 답이 맞았을 때 ----------
+// 대화 없이 바로 끝낸다. 풀이 노트와 개념 카드도 미리 푼 풀이로 바로 만든다(추가 비용 없음).
+
+let resultAnswer = "";
+
+function showResult(answer, solution) {
+  resultAnswer = answer;
+  $("result-answer").textContent = t("result.answer", { answer });
+  $("result-key").textContent = solution.key;
+  $("result-key-box").hidden = !solution.key;
+  $("result-steps").textContent = solution.steps;
+  const title = state.problem.split("\n")[0].slice(0, 40);
+  const steps = String(solution.steps || "")
+    .split("\n")
+    .map((x) => x.replace(/^\s*\d+[.)]\s*/, "").trim())
+    .filter(Boolean);
+  saveItem({
+    id: state.id,
+    createdAt: state.createdAt,
+    problem: state.problem,
+    agree: state.agree,
+    summary: { unit: "", title, steps, key: solution.key, stuck: "", answer: solution.answer || answer, finished: true, quick: true },
+  });
+  saveCard({ id: state.id, key: solution.key, title, problem: state.problem.split("\n")[0] });
+  show("result");
+  if (soundOn && canSpeak) speak(t("result.title"));
+}
+
+$("btn-result-next").onclick = () => {
+  stopSpeaking();
+  state.id = ""; // 이미 노트로 정리했으니 다시 정리하지 않는다
+  goStart();
+};
+
+// 맞혔지만 선생님과 조금 더(핵심 + 비슷한 문제). 이 문제는 이미 차감했으니 새로 차감하지 않는다.
+$("btn-result-more").onclick = async () => {
+  stopSpeaking();
+  if (soundOn) unlockSpeech();
+  // 빠른 노트 대신, 대화가 끝나면 대화로 다시 정리한다
+  deleteItem(state.id);
+  openChat();
+  const text = t("answer.mine", { answer: resultAnswer }) + "\n" + t("result.moreMsg");
+  state.messages.push({ role: "user", content: text });
+  addBubble("user", text);
+  await sendToTutor();
+};
 
 // ---------- 3. 대화 ----------
 
@@ -432,6 +510,11 @@ async function sendToTutor() {
     typing.remove();
     state.messages.push({ role: "assistant", content: reply });
     const bubble = addBubble("assistant", reply);
+    // 마무리의 "오늘 배운 핵심:" 한 줄은 개념 카드로 모은다
+    const takeaway = findTakeaway(reply);
+    if (takeaway && saveCard({ id: state.id, key: takeaway, problem: state.problem.split("\n")[0], at: state.createdAt })) {
+      toast(t("cards.saved"));
+    }
     const marked = markRefs(reply, state.figure);
     if (soundOn && canSpeak) playText(marked, bubble.querySelector(".replay"));
     else blinkSentence(marked); // 소리가 꺼져 있으면 말풍선이 뜰 때 바로 깜빡인다
@@ -460,8 +543,69 @@ async function sendMessage(text) {
   addBubble("user", text);
   $("chat-input").value = "";
   autoGrow();
+  if (STUCK_WORDS.test(text)) countStuck();
   await sendToTutor();
 }
+
+// ---------- 답답할 때 탈출구: 📖 풀이 보기 ----------
+
+function countStuck() {
+  state.stuck++;
+  if (state.stuck >= STUCK_LIMIT && $("btn-show-all").hidden) {
+    $("btn-show-all").hidden = false;
+    toast(t("chat.showAllReady"));
+  }
+}
+
+function solutionBubble({ agree, solutions }) {
+  const div = document.createElement("div");
+  div.className = "bubble assistant solution";
+  const title = document.createElement("div");
+  title.className = "solution-title";
+  title.textContent = t("chat.showAllTitle");
+  div.append(title);
+  if (!agree) {
+    const warn = document.createElement("p");
+    warn.className = "note";
+    warn.textContent = t("chat.showAllUnsure");
+    div.append(warn);
+  }
+  solutions.forEach((s, i) => {
+    if (solutions.length > 1) {
+      const h = document.createElement("b");
+      h.textContent = t("chat.showAllNum", { n: i + 1 });
+      div.append(h);
+    }
+    const steps = document.createElement("div");
+    steps.className = "solution-steps";
+    steps.textContent = s.steps;
+    const ans = document.createElement("div");
+    ans.className = "solution-answer";
+    ans.textContent = t("chat.showAllAnswer", { answer: s.answer });
+    div.append(steps, ans);
+  });
+  $("messages").append(div);
+  div.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+$("btn-show-all").onclick = async () => {
+  if (state.busy) return;
+  stopSpeaking();
+  if (soundOn) unlockSpeech();
+  $("btn-show-all").disabled = true;
+  try {
+    const data = await api("solution", { sealed: state.sealed });
+    $("btn-show-all").hidden = true;
+    solutionBubble(data);
+    // 선생님에게는 "풀이를 봤다"고만 알리고, 핵심 짚기 + 비슷한 문제로 마무리하게 한다
+    state.messages.push({ role: "user", content: t("chat.sawAll") });
+    await sendToTutor();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    $("btn-show-all").disabled = false;
+  }
+};
 
 function autoGrow() {
   const el = $("chat-input");
@@ -700,6 +844,7 @@ async function startSession() {
   me = info;
   saveToken(token); // 열 때마다 새 표(180일)로 바꿔서 자주 쓰면 계속 로그인 상태
   useHistoryOf(me.id);
+  useCardsOf(me.id);
   $("btn-admin").hidden = !me.admin;
   renderMe();
   // 이 폰에서 이 아이디로 처음 들어왔으면 사용법부터 보여 준다
@@ -831,6 +976,8 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").cat
 // 푸는 동안에는 대화를 임시로 저장해 두고, 문제를 떠나면 "풀이 노트"로 짧게 정리한 뒤 대화는 지운다.
 
 function openChat() {
+  state.stuck = 0;
+  $("btn-show-all").hidden = true;
   $("chat-problem").textContent = state.problem;
   $("check-badge").textContent = t(state.agree ? "chat.verified" : "chat.unverified");
   $("check-badge").className = "badge " + (state.agree ? "ok" : "warn");
@@ -880,6 +1027,10 @@ async function summarize(id) {
     const latest = getItem(id);
     if (latest) {
       saveItem({ id, createdAt: latest.createdAt, problem: latest.problem, agree: latest.agree, summary });
+      // 선생님이 마무리 한 줄을 안 했어도, 끝까지 푼 문제면 노트의 핵심으로 카드를 만든다
+      if (summary.finished || getCard(id)) {
+        saveCard({ id, key: summary.key, title: summary.title, problem: latest.problem.split("\n")[0], at: latest.createdAt });
+      }
     }
   } catch {
     // 실패하면 대화를 그대로 두고 다음에 다시 정리한다
@@ -899,6 +1050,9 @@ function renderHistoryButton() {
   const n = listItems().length;
   $("btn-history").hidden = n === 0;
   $("btn-history").textContent = t("history.button", { n });
+  const c = listCards().length;
+  $("btn-cards").hidden = c === 0;
+  $("btn-cards").textContent = t("cards.button", { n: c });
   summarizePending();
 }
 
@@ -959,6 +1113,59 @@ function showNote(item) {
 }
 
 $("btn-history").onclick = renderHistory;
+
+// ---------- 오늘 배운 개념 카드 ----------
+
+function renderCards() {
+  const list = $("cards-list");
+  list.innerHTML = "";
+  const cards = listCards();
+  $("cards-empty").hidden = cards.length > 0;
+  let lastDay = "";
+  for (const card of cards) {
+    // 날짜별로 묶는다(오늘이 맨 위)
+    const d = new Date(card.at);
+    const day =
+      d.toDateString() === new Date().toDateString()
+        ? t("cards.today")
+        : d.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric", weekday: "short" });
+    if (day !== lastDay) {
+      const h = document.createElement("h3");
+      h.className = "cards-day";
+      h.textContent = day;
+      list.append(h);
+      lastDay = day;
+    }
+    const row = document.createElement("div");
+    row.className = "card concept-card";
+    const open = document.createElement("button");
+    open.className = "concept-open";
+    const key = document.createElement("div");
+    key.className = "concept-key";
+    key.textContent = card.key;
+    const from = document.createElement("div");
+    from.className = "sub";
+    from.textContent = card.title || card.problem;
+    open.append(key, from);
+    const item = getItem(card.id);
+    open.onclick = () => item?.summary && showNote(item);
+    const del = document.createElement("button");
+    del.className = "history-del";
+    del.setAttribute("aria-label", t("cards.delete"));
+    del.textContent = "🗑️";
+    del.onclick = () => {
+      if (!confirm(t("cards.deleteConfirm"))) return;
+      deleteCard(card.id);
+      renderCards();
+    };
+    row.append(open, del);
+    list.append(row);
+  }
+  show("cards");
+}
+
+$("btn-cards").onclick = renderCards;
+$("btn-cards-back").onclick = () => show("home");
 $("btn-history-back").onclick = () => show("home");
 $("btn-note-back").onclick = renderHistory;
 $("btn-note-feedback").onclick = () => openFeedback(noteTitle);

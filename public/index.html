@@ -72,6 +72,7 @@
       </label>
       <button id="btn-type" class="btn link" data-i18n="home.type">사진 말고 직접 쓸래</button>
       <button id="btn-history" class="btn" hidden>📚 지난 문제</button>
+      <button id="btn-cards" class="btn" hidden>📇 개념 카드</button>
       <div class="row">
         <button id="btn-feedback" class="btn" data-i18n="home.feedback">💬 의견 보내기</button>
         <button id="btn-admin" class="btn" hidden>🛠️ 관리</button>
@@ -114,6 +115,14 @@
         <button id="btn-yes" class="btn primary" data-i18n="confirm.yes">맞아, 시작!</button>
         <button id="btn-edit" class="btn" data-i18n="confirm.edit">고칠게</button>
       </div>
+      <!-- 이미 풀었으면 답만 확인: 맞으면 바로 끝, 틀리면 그때 선생님과 대화 -->
+      <form id="answer-form" class="card answer-box">
+        <b data-i18n="answer.title">이미 풀었어? 답만 확인해 줄게</b>
+        <div class="answer-row">
+          <input id="answer-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" maxlength="300" placeholder="내 답 (예: x = 11)" data-i18n-ph="answer.ph" />
+          <button id="btn-check-answer" class="btn" type="submit" data-i18n="answer.check">✅ 내 답 확인</button>
+        </div>
+      </form>
       <button id="btn-retake" class="btn link" data-i18n="common.home">처음으로</button>
     </section>
 
@@ -137,12 +146,40 @@
         <button data-quick="hint" data-i18n="chat.hint">💡 힌트</button>
         <button data-quick="dunno" data-i18n="chat.dunno">🤔 모르겠어</button>
         <button data-quick="again" data-i18n="chat.again">🔁 다시 설명</button>
+        <button id="btn-show-all" class="show-all" type="button" hidden data-i18n="chat.showAll">📖 풀이 보기</button>
       </div>
       <form id="chat-form" class="composer">
         <button id="btn-mic" class="btn mic" type="button" hidden aria-label="말로 하기" data-i18n-aria="chat.mic">🎤</button>
         <textarea id="chat-input" rows="1" placeholder="생각을 적어 봐" data-i18n-ph="chat.ph" enterkeyhint="send"></textarea>
         <button class="btn primary" type="submit" data-i18n="common.send">보내기</button>
       </form>
+    </section>
+
+    <!-- 4-1. 내 답 확인: 맞았을 때 -->
+    <section id="screen-result" class="screen" hidden>
+      <div class="result-mark">🎉</div>
+      <h2 data-i18n="result.title">맞았어!</h2>
+      <p id="result-answer" class="lead"></p>
+      <div id="result-key-box" class="card concept-card">
+        <div class="concept-label" data-i18n="cards.label">📇 오늘 배운 개념</div>
+        <div id="result-key" class="concept-key"></div>
+        <p class="sub" data-i18n="result.saved">개념 카드에 담아 뒀어.</p>
+      </div>
+      <details class="card">
+        <summary data-i18n="result.steps">📄 풀이 보기</summary>
+        <div id="result-steps" class="problem"></div>
+      </details>
+      <button id="btn-result-next" class="btn primary big" type="button" data-i18n="result.next">📷 다음 문제</button>
+      <button id="btn-result-more" class="btn" type="button" data-i18n="result.more">💬 비슷한 문제 하나 더 (선생님이랑)</button>
+    </section>
+
+    <!-- 4-2. 오늘 배운 개념 카드 -->
+    <section id="screen-cards" class="screen" hidden>
+      <h2 data-i18n="cards.title">📇 개념 카드</h2>
+      <p class="sub" data-i18n="cards.note">푼 문제마다 핵심 한 줄을 모았어. 시험 전에 훑어봐! (이 폰에만 저장돼)</p>
+      <div id="cards-list" class="cards-list"></div>
+      <p id="cards-empty" class="sub" data-i18n="cards.empty" hidden>아직 카드가 없어. 문제를 끝까지 풀면 핵심이 여기 모여.</p>
+      <button id="btn-cards-back" class="btn link" data-i18n="common.home">처음으로</button>
     </section>
 
     <!-- 5. 지난 문제 목록 -->
@@ -227,7 +264,7 @@
             <div class="mock-row"><span class="mock-btn primary small">맞아, 시작!</span><span class="mock-btn small">고칠게</span></div>
           </div>
           <h2>2. 읽은 게 맞는지 확인</h2>
-          <p>선생님이 읽은 문제가 맞으면 <b>맞아, 시작!</b><br />틀린 글자가 있으면 <b>고칠게</b>를 눌러 고쳐 줘.</p>
+          <p>선생님이 읽은 문제가 맞으면 <b>맞아, 시작!</b> 틀린 글자가 있으면 <b>고칠게</b>.<br />이미 풀었으면 답을 적고 <b>✅ 내 답 확인</b>. 맞으면 바로 끝!</p>
         </div>
         <div class="slide" data-i18n-html="tut.3">
           <div class="slide-art">
@@ -256,10 +293,11 @@
         <div class="slide" data-i18n-html="tut.6">
           <div class="slide-art">
             <div class="mock-btn">📚 지난 문제</div>
+            <div class="mock-btn">📇 개념 카드</div>
             <div class="mock-btn">💬 의견 보내기</div>
           </div>
           <h2>6. 복습하고 의견 남기기</h2>
-          <p>카메라 화면 왼쪽 위 <b>☰ 메뉴</b>에 있어.<br />푼 문제는 <b>📚 지난 문제</b>에 풀이 노트로 남아. 불편한 점은 <b>💬 의견 보내기</b>로 알려 줘!</p>
+          <p>카메라 화면 왼쪽 위 <b>☰ 메뉴</b>에 있어.<br />푼 문제는 <b>📚 지난 문제</b>에, 핵심 한 줄은 <b>📇 개념 카드</b>에 모여. 불편한 점은 <b>💬 의견 보내기</b>로 알려 줘!</p>
         </div>
       </div>
       <div id="slide-dots" class="dots"></div>
