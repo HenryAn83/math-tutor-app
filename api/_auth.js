@@ -46,7 +46,7 @@ function sign(body) {
   return crypto.createHmac("sha256", tokenKey()).update(body).digest("base64url");
 }
 
-function makeToken(user) {
+export function makeToken(user) {
   const body = Buffer.from(
     JSON.stringify({ u: user.id, v: user.pv || 0, exp: Date.now() + TOKEN_DAYS * 864e5 }),
   ).toString("base64url");
@@ -118,19 +118,42 @@ async function checkLogin(id, password) {
   return { token: makeToken(user) };
 }
 
-// 요청에 붙은 로그인 표를 확인한다. 안 되면 401을 보내고 null을 돌려준다.
-export async function requireUser(req, res) {
-  const token = String(req.headers.authorization || "").replace(/^Bearer /, "");
+// 로그인 표가 아직 쓸 수 있는지 본다(기한, 비밀번호 바뀜, 정지). 안 되면 null.
+export async function userFromToken(token) {
   let data = null;
   try {
     data = readToken(token);
   } catch {}
-  let user = null;
-  if (data?.u === MASTER) user = masterUser();
-  else if (data) {
-    const stored = await getJSON(userKey(data.u));
-    if (stored && !stored.disabled && (stored.pv || 0) === data.v) user = stored;
-  }
+  if (data?.u === MASTER) return masterUser();
+  if (!data) return null;
+  const stored = await getJSON(userKey(data.u));
+  return stored && !stored.disabled && (stored.pv || 0) === data.v ? stored : null;
+}
+
+// ---------- 로그인 유지 쿠키 ----------
+// 아이폰 사파리는 7일 동안 안 들어온 사이트의 localStorage를 지울 수 있어서, 같은 로그인 표를
+// 자바스크립트가 못 읽는 쿠키(HttpOnly)에도 넣어 둔다. 폰에 표가 사라졌을 때 이 쿠키로 되살린다.
+// /api 로만 보내고, 다른 사이트에서 보낸 요청에는 붙지 않는다(SameSite=Lax).
+const COOKIE = "mt_login";
+
+export function setLoginCookie(res, token) {
+  const secure = process.env.VERCEL ? "; Secure" : "";
+  const age = token ? TOKEN_DAYS * 86400 : 0;
+  res.setHeader("Set-Cookie", `${COOKIE}=${token || ""}; Path=/api; Max-Age=${age}; HttpOnly; SameSite=Lax${secure}`);
+}
+
+export function loginCookie(req) {
+  const m = String(req.headers.cookie || "").match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
+  return m ? m[1] : "";
+}
+
+export function bearer(req) {
+  return String(req.headers.authorization || "").replace(/^Bearer /, "");
+}
+
+// 요청에 붙은 로그인 표를 확인한다. 안 되면 401을 보내고 null을 돌려준다.
+export async function requireUser(req, res) {
+  const user = await userFromToken(bearer(req));
   if (!user) {
     res.status(401).json({ error: say(req, "relogin"), login: true });
     return null;

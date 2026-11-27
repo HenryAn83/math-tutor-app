@@ -69,6 +69,11 @@ const ko = {
   "login.toSignup": "처음이야? 가입하기",
   "login.toLogin": "이미 아이디가 있어? 로그인",
   "login.blank": "빈칸을 다 채워 줘!",
+  "cam.noLive": "아래 버튼을 눌러 문제를 찍어 줘.",
+  "cam.denied": "카메라를 허용하면 여기서 바로 찍을 수 있어. 지금은 아래 버튼으로 찍어 줘.",
+  "cam.unlimited": "무제한",
+  "cam.credits": "남은 문제 {n}개",
+  "wait.start": "잠깐만…",
   "me.unlimited": "무제한",
   "me.credits": "남은 무료 문제 {n}개",
   "logout.confirm": "로그아웃할까?",
@@ -138,6 +143,11 @@ const en = {
   "login.toSignup": "New here? Sign up",
   "login.toLogin": "Already have a username? Log in",
   "login.blank": "Please fill in every box!",
+  "cam.noLive": "Tap the button below to take a photo of the problem.",
+  "cam.denied": "Allow the camera to snap photos right here. For now, use the button below.",
+  "cam.unlimited": "Unlimited",
+  "cam.credits": "{n} left",
+  "wait.start": "One moment…",
   "me.unlimited": "Unlimited",
   "me.credits": "{n} free problems left",
   "logout.confirm": "Log out?",
@@ -166,6 +176,11 @@ const en = {
   "login.free": "Sign up to solve 5 problems for free.",
   "home.lead": "Snap a photo of a problem you're stuck on.<br />Instead of giving answers, I'll ask questions and we'll solve it together.",
   "home.camera": "📷 Take a photo",
+  "cam.menu": "☰ Menu",
+  "cam.guide": "Fit one problem inside this box",
+  "cam.album": "Photos",
+  "cam.type": "Type it",
+  "cam.shoot": "Take photo",
   "home.album": "🖼️ Choose from photos",
   "home.type": "I'd rather type it",
   "home.feedback": "💬 Send feedback",
@@ -215,11 +230,10 @@ const en = {
   "quick.okQ": "Just right",
   "quick.few": "Too few",
   "tut.1": `<div class="slide-art">
-            <div class="mock-btn primary">📷 Take a photo</div>
-            <div class="mock-btn">🖼️ Choose from photos</div>
+            <div class="mock-row"><span class="mock-chip">🖼️ Photos</span><span class="mock-shutter"></span><span class="mock-chip">⌨️ Type it</span></div>
           </div>
-          <h2>1. Snap the problem</h2>
-          <p>Fill the screen with one problem, in good light.<br />You can also pick a photo or type it.</p>`,
+          <h2>1. The camera opens right away</h2>
+          <p>Fit one problem inside the box and tap the <b>⚪ shutter</b>.<br />You can also pick a photo or type it.</p>`,
   "tut.2": `<div class="slide-art">
             <div class="mock-card">3(x − 2) = 2x + 5</div>
             <div class="mock-row"><span class="mock-btn primary small">Yes, let's go!</span><span class="mock-btn small">Fix it</span></div>
@@ -249,7 +263,7 @@ const en = {
             <div class="mock-btn">💬 Send feedback</div>
           </div>
           <h2>6. Review and tell us what you think</h2>
-          <p>Solved problems are saved as notes in <b>📚 Past problems</b>.<br />Anything annoying? Tell us with <b>💬 Send feedback</b>!</p>`,
+          <p>Find these under <b>☰ Menu</b> at the top left of the camera.<br />Solved problems are saved as notes in <b>📚 Past problems</b>. Anything annoying? Tell us with <b>💬 Send feedback</b>!</p>`,
 };
 
 const DICTS = { ko, en };
