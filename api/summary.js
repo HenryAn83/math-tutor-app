@@ -84,7 +84,7 @@ export default async function handler(req, res) {
   let session;
   try {
     session = unseal(sealed);
-    if (session.user && session.user !== user.id) throw new Error("other user");
+    if ((session.user && session.user !== user.id) || session.pre) throw new Error("other user");
   } catch {
     return res.status(400).json({ error: say(req, "noSummary") });
   }

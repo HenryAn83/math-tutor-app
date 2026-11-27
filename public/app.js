@@ -33,6 +33,7 @@ const state = {
   agree: true,
   figure: null, // 다시 그린 문제 그림(figure.js). 없으면 null
   figureSvg: null, // 대화 화면에 그려진 그림
+  pre: null, // 확인 화면이 뜨자마자 미리 풀기 시작한 것 { problem, promise }
   stuck: 0, // 이번 문제에서 막힌 횟수(힌트, 모르겠어). 3번이면 "📖 풀이 보기"를 보여 준다
 };
 
@@ -50,6 +51,7 @@ export function show(name) {
 
 // 로그인한 뒤의 "처음" 화면은 카메라다. 지난 문제, 의견, 사용법, 로그아웃은 ☰ 메뉴(예전 시작 화면)에.
 function goStart() {
+  state.pre = null;
   show("camera");
 }
 
@@ -244,6 +246,17 @@ function showConfirm(index) {
   renderConfirmFigure();
   $("answer-input").value = "";
   show("confirm");
+  presolve(state.problem);
+}
+
+// "이렇게 읽었는데 맞아?"를 보는 동안 뒤에서 미리 풀어 둔다. 차감은 "맞아"를 누를 때만.
+// 고치거나 나가면 미리 푼 건 버린다. 서버가 하루 횟수, 이번 달 비용을 보고 안 하기도 한다(skip).
+function presolve(problem) {
+  if (state.pre?.problem === problem) return;
+  const promise = api("check", { problem, presolve: true })
+    .then((r) => r.pre || null)
+    .catch(() => null);
+  state.pre = { problem, promise };
 }
 
 // "그림도 이렇게 읽었어" — 다시 그린 그림이 원래 그림과 많이 다르면 빼고 시작할 수 있다.
@@ -289,7 +302,13 @@ async function confirmProblem(answer = "") {
   if (answer) wait(t("answer.wait"), t("answer.waitSub"));
   else wait(t("wait.check"), t("wait.checkSub"));
   try {
-    const result = await api("check", { problem: state.problem, figure: figureLabels(state.figure), answer });
+    const figure = figureLabels(state.figure);
+    // 같은 문제를 미리 풀어 뒀으면 그걸 쓴다(대부분 바로 시작). 고쳤으면 처음부터 푼다.
+    const pre = state.pre?.problem === state.problem ? await state.pre.promise : null;
+    state.pre = null;
+    const result = pre
+      ? await api("check", { claim: pre, figure, answer })
+      : await api("check", { problem: state.problem, figure, answer });
     state.sealed = result.sealed;
     if (me && result.credits !== undefined) {
       me.credits = result.credits;
