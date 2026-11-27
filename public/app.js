@@ -37,7 +37,14 @@ const state = {
 export function show(name) {
   for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== `screen-${name}`;
   if (name === "home") renderHistoryButton();
+  if (name === "camera") startCamera();
+  else stopCamera();
   window.scrollTo(0, 0);
+}
+
+// 로그인한 뒤의 "처음" 화면은 카메라다. 지난 문제, 의견, 사용법, 로그아웃은 ☰ 메뉴(예전 시작 화면)에.
+function goStart() {
+  show("camera");
 }
 
 export function toast(text) {
@@ -92,6 +99,10 @@ async function onPhoto(event) {
   const file = event.target.files?.[0];
   event.target.value = "";
   if (!file) return;
+  await readPhoto(file);
+}
+
+async function readPhoto(file) {
   wait(t("wait.read"), t("wait.readSub"));
   try {
     const image = await shrink(file).catch(() => {
@@ -99,15 +110,96 @@ async function onPhoto(event) {
     });
     const result = await api("read", { image, mediaType: "image/jpeg" });
     if (!result.problems?.length) {
-      show("home");
+      goStart();
       toast(result.photo_tip || t("photo.none"));
       return;
     }
     state.candidates = result.problems;
     showConfirm(0);
   } catch (err) {
-    show("home");
+    goStart();
     toast(err.message);
+  }
+}
+
+// ---------- 열자마자 카메라 ----------
+// 앱 화면 안에서 카메라를 바로 켠다(사진은 셔터를 누를 때만 만들고, 그 전에는 어디로도 보내지 않는다).
+// 카메라를 못 쓰는 브라우저(카톡 안 브라우저 등)나 허용을 안 했으면 "📷 문제 찍기" 버튼(폰 기본 카메라)으로 대신한다.
+
+let camStream = null;
+let camStarting = false;
+
+function camFallback(textKey) {
+  $("cam-video").hidden = true;
+  $("cam-guide").hidden = true;
+  $("cam-fallback-text").textContent = t(textKey);
+  $("cam-fallback").hidden = false;
+}
+
+async function startCamera() {
+  if (camStream || camStarting) return;
+  if (!navigator.mediaDevices?.getUserMedia) return camFallback("cam.noLive");
+  camStarting = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    });
+    camStarting = false;
+    // 기다리는 사이에 다른 화면으로 갔으면 바로 끈다
+    if ($("screen-camera").hidden || document.hidden) return stream.getTracks().forEach((tr) => tr.stop());
+    camStream = stream;
+    const video = $("cam-video");
+    video.srcObject = stream;
+    video.hidden = false;
+    $("cam-guide").hidden = false;
+    $("cam-fallback").hidden = true;
+    await video.play().catch(() => {});
+  } catch (err) {
+    camStarting = false;
+    camFallback(err?.name === "NotAllowedError" ? "cam.denied" : "cam.noLive");
+  }
+}
+
+function stopCamera() {
+  if (!camStream) return;
+  camStream.getTracks().forEach((tr) => tr.stop());
+  camStream = null;
+  $("cam-video").srcObject = null;
+}
+
+// 앱을 내렸다 올리면 카메라도 껐다 켠다(배터리, 다른 앱이 카메라 쓰기)
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopCamera();
+  else if (!$("screen-camera").hidden) startCamera();
+});
+
+async function snap() {
+  const video = $("cam-video");
+  // 앱 안 카메라를 못 쓰면 셔터를 눌러도 폰 기본 카메라가 열리게
+  if (!camStream) return $("input-camera2").click();
+  if (!video.videoWidth) return;
+  $("btn-shutter").disabled = true;
+  try {
+    let blob = null;
+    // 안드로이드 크롬은 진짜 사진(고화질)을 찍을 수 있다. 안 되면 화면 한 장면을 쓴다.
+    try {
+      if ("ImageCapture" in window) blob = await new ImageCapture(camStream.getVideoTracks()[0]).takePhoto();
+    } catch {}
+    if (!blob) {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+      blob = await new Promise((ok) => canvas.toBlob(ok, "image/jpeg", 0.92));
+    }
+    if (!blob) throw new Error(t("photo.bad"));
+    stopCamera();
+    await readPhoto(blob);
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    $("btn-shutter").disabled = false;
   }
 }
 
@@ -379,15 +471,20 @@ function autoGrow() {
 
 // ---------- 연결 ----------
 
-$("input-camera").addEventListener("change", onPhoto);
+$("btn-to-camera").onclick = goStart;
 $("input-album").addEventListener("change", onPhoto);
+$("input-camera2").addEventListener("change", onPhoto);
+$("input-album2").addEventListener("change", onPhoto);
+$("btn-shutter").onclick = snap;
+$("btn-cam-type").onclick = startTyping;
+$("btn-cam-menu").onclick = () => show("home");
 $("btn-type").onclick = startTyping;
 $("btn-edit").onclick = editProblem;
 $("btn-yes").onclick = () => {
   if (soundOn) unlockSpeech();
   confirmProblem();
 };
-$("btn-retake").onclick = () => show("home");
+$("btn-retake").onclick = goStart;
 // ---------- 음성 ----------
 
 // 기본은 켜짐. 위쪽 🔊 버튼으로 끄면 이 폰이 기억한다.
@@ -462,7 +559,7 @@ $("btn-new").onclick = () => {
     leaveCurrent();
     // 한마디라도 나눈 문제면 버튼 두 번으로 끝나는 짧은 의견을 받는다
     if (talked) openQuick(problem);
-    else show("home");
+    else goStart();
   }
 };
 
@@ -485,13 +582,13 @@ for (const row of document.querySelectorAll("#screen-quick [data-group]")) {
   }
 }
 
-$("btn-quick-skip").onclick = () => show("home");
+$("btn-quick-skip").onclick = goStart;
 $("btn-quick-send").onclick = () => {
   if (!quick.difficulty && !quick.questions) return toast(t("quick.pick"));
   // 기다리지 않고 바로 홈으로. 실패해도 아이에게는 알리지 않는다.
   api("feedback", { about: quick.about, difficulty: quick.difficulty, questions: quick.questions }).catch(() => {});
   toast(t("quick.thanks"));
-  show("home");
+  goStart();
 };
 
 // ---------- 사용법 ----------
@@ -525,7 +622,7 @@ function closeTutorial() {
   try {
     if (tutorialKey) localStorage.setItem(tutorialKey, "1");
   } catch {}
-  show("home");
+  goStart();
 }
 
 slides.addEventListener("scroll", () => requestAnimationFrame(renderDots));
@@ -586,9 +683,7 @@ $("login-form").addEventListener("submit", async (e) => {
   $("login-submit").disabled = true;
   try {
     const { token } = await api("auth", body);
-    authToken = token;
-    localStorage.setItem("authToken", token);
-    localStorage.setItem("everLoggedIn", "1");
+    saveToken(token);
     $("login-pass").value = "";
     await startSession();
   } catch (err) {
@@ -601,8 +696,9 @@ $("login-form").addEventListener("submit", async (e) => {
 // 로그인 표가 있으면 내 정보를 받아 시작 화면으로, 없으면 로그인 화면으로.
 async function startSession() {
   if (!authToken) return show("login");
-  const info = await api("auth", { action: "me" });
+  const { token, ...info } = await api("auth", { action: "me" });
   me = info;
+  saveToken(token); // 열 때마다 새 표(180일)로 바꿔서 자주 쓰면 계속 로그인 상태
   useHistoryOf(me.id);
   $("btn-admin").hidden = !me.admin;
   renderMe();
@@ -610,14 +706,25 @@ async function startSession() {
   tutorialKey = `tutorialDone:${me.id}`;
   let seen = true;
   try {
-    seen = localStorage.getItem(tutorialKey) === "1";
+    seen = restored || localStorage.getItem(tutorialKey) === "1";
   } catch {}
-  if (seen || me.admin) show("home");
-  else openTutorial();
+  if (seen || me.admin) {
+    if ($("screen-wait").hidden === false || $("screen-login").hidden === false) goStart();
+  } else openTutorial();
+}
+
+function saveToken(token) {
+  if (!token) return;
+  authToken = token;
+  try {
+    localStorage.setItem("authToken", token);
+    localStorage.setItem("everLoggedIn", "1");
+  } catch {}
 }
 
 function renderMe() {
   if (!me) return;
+  $("cam-credits").textContent = me.credits === null ? t("cam.unlimited") : t("cam.credits", { n: me.credits });
   $("me-name").textContent = `${me.name}`;
   const badge = $("me-credits");
   if (me.credits === null) {
@@ -633,6 +740,8 @@ function logout() {
   authToken = "";
   me = null;
   localStorage.removeItem("authToken");
+  // 로그인 유지 쿠키도 지운다(실패해도 쿠키 속 표는 서버가 다시 확인한다)
+  fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: '{"action":"logout"}' }).catch(() => {});
   signingUp = false;
   renderLoginMode();
   show("login");
@@ -684,10 +793,37 @@ $("btn-feedback-send").onclick = async () => {
   }
 };
 
+// 폰에 로그인 표가 있으면 바로 카메라. 없으면(아이폰이 오래 안 쓴 사이트 저장값을 지운 경우 등)
+// 로그인 유지 쿠키로 조용히 되살려 보고, 그것도 없으면 로그인/가입 화면.
+let restored = false;
+async function restoreLogin() {
+  try {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-lang": lang },
+      body: '{"action":"me"}',
+    });
+    if (res.ok) {
+      const { token } = await res.json();
+      if (token) {
+        saveToken(token);
+        restored = true; // 전에 쓰던 사람이니 사용법은 다시 안 보여 준다
+        signingUp = false;
+        renderLoginMode();
+        return startSession();
+      }
+    }
+  } catch {}
+  show("login");
+}
+
 if (authToken) {
-  show("home");
+  goStart();
   startSession().catch((err) => toast(err.message));
-} else show("login");
+} else {
+  wait(t("wait.start"));
+  restoreLogin().catch(() => show("login"));
+}
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 
